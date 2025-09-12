@@ -4,6 +4,9 @@ FROM node:20-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
+# 配置Alpine国内镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 # 安装系统依赖（构建需要）
 RUN apk add --no-cache \
     libc6-compat \
@@ -13,6 +16,9 @@ RUN apk add --no-cache \
     g++ \
     wget \
     tar
+
+# 配置npm国内镜像源
+RUN npm config set registry https://registry.npmmirror.com
 
 # 复制前端所有文件并构建前端
 COPY frontend/ ./frontend/
@@ -27,12 +33,18 @@ FROM node:20-alpine AS production
 # 设置工作目录
 WORKDIR /app/server
 
+# 配置Alpine国内镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 # 安装系统依赖（运行时需要）
 RUN apk add --no-cache \
     libc6-compat \
     vips-dev \
     wget \
     tar
+
+# 配置npm国内镜像源
+RUN npm config set registry https://registry.npmmirror.com
 
 # 复制服务端 package.json 和 package-lock.json
 COPY server/package*.json ./
