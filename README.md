@@ -17,7 +17,7 @@ imageop/
 │   ├── src/
 │   ├── package.json
 │   └── dist/
-├── config/                 # 配置文件
+├── docker/                 # Docker配置
 │   ├── docker-compose.yml
 │   ├── Dockerfile
 │   └── env.example
@@ -77,7 +77,7 @@ npm start
 
 ```bash
 # 基础部署
-cd config
+cd docker
 docker compose up -d
 
 # 使用部署脚本

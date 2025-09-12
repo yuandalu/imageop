@@ -50,14 +50,14 @@ npm start
 #### 基础部署
 
 ```bash
-cd config
+cd docker
 ./deploy.sh
 ```
 
 #### 完整部署（含 Nginx）
 
 ```bash
-cd config
+cd docker
 ./deploy.sh
 ```
 
@@ -228,8 +228,8 @@ http {
 ### 创建环境变量文件
 
 ```bash
-cp config/env.example config/.env
-nano config/.env
+cp docker/env.example docker/.env
+nano docker/.env
 ```
 
 ### 环境变量说明
@@ -333,8 +333,8 @@ sudo tail -f /var/log/nginx/error.log
 ```bash
 # 生成自签名证书
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout config/ssl/nginx.key \
-  -out config/ssl/nginx.crt
+  -keyout docker/ssl/nginx.key \
+  -out docker/ssl/nginx.crt
 ```
 
 ### 防火墙配置

@@ -27,7 +27,7 @@ echo "🚀 开始推送镜像: $FULL_IMAGE_NAME"
 # 检查本地镜像是否存在
 if ! sudo docker images imageop-test | grep -q imageop-test; then
     echo "❌ 错误: 本地镜像 imageop-test 不存在"
-    echo "请先运行: sudo docker build -f config/Dockerfile -t imageop-test ."
+    echo "请先运行: sudo docker build -f docker/Dockerfile -t imageop-test ."
     exit 1
 fi
 
