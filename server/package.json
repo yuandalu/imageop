@@ -1,0 +1,38 @@
+{
+  "name": "imageop",
+  "version": "1.0.0",
+  "description": "高性能图片压缩优化服务",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "dev:full": "concurrently \"npm run dev\" \"cd ../frontend && npm run dev\"",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd ../frontend && npm run build"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fs-extra": "^11.1.1",
+    "helmet": "^7.1.0",
+    "multer": "^1.4.5-lts.1",
+    "path": "^0.12.7",
+    "sharp": "^0.33.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "image",
+    "compression",
+    "optimization",
+    "jpg",
+    "png",
+    "webp"
+  ],
+  "author": "ImageOp Team",
+  "license": "MIT"
+}

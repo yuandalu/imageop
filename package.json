@@ -1,0 +1,26 @@
+{
+  "name": "imageop",
+  "version": "1.0.0",
+  "description": "高性能图片压缩优化服务",
+  "scripts": {
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev:full",
+    "dev:server": "cd server && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "install:all": "npm run install:server && npm run install:frontend",
+    "install:server": "cd server && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "setup": "npm run install:all && npm run build"
+  },
+  "keywords": [
+    "image",
+    "compression",
+    "optimization",
+    "jpg",
+    "png",
+    "webp"
+  ],
+  "author": "ImageOp Team",
+  "license": "MIT"
+}
