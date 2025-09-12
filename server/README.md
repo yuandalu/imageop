@@ -93,7 +93,7 @@ npm start
 
 **请求示例：**
 ```bash
-curl -X POST http://localhost:5000/api/compress/batch \
+curl -X POST http://localhost:3080/api/compress/batch \
   -F "images=@image1.jpg" \
   -F "images=@image2.png" \
   -F "lossy=true" \
@@ -140,7 +140,7 @@ curl -X POST http://localhost:5000/api/compress/batch \
 
 **请求示例：**
 ```bash
-curl -X POST http://localhost:5000/api/analyze \
+curl -X POST http://localhost:3080/api/analyze \
   -F "image=@test.jpg"
 ```
 
@@ -351,7 +351,7 @@ server/
 
 ### 环境变量
 ```bash
-PORT=5000                    # 服务器端口
+PORT=3080                    # 服务器端口
 NODE_ENV=production          # 运行环境
 ```
 
@@ -391,12 +391,12 @@ console.log(result.results);
 ### cURL 示例
 ```bash
 # 压缩单张图片
-curl -X POST http://localhost:5000/api/compress/batch \
+curl -X POST http://localhost:3080/api/compress/batch \
   -F "images=@photo.jpg" \
   -F "jpegQuality=85"
 
 # 分析图片
-curl -X POST http://localhost:5000/api/analyze \
+curl -X POST http://localhost:3080/api/analyze \
   -F "image=@photo.jpg"
 ```
 

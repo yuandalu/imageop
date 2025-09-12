@@ -25,7 +25,7 @@ sudo yum install pngquant
 
 ### 第三步：开始使用
 
-打开浏览器访问：http://localhost:5000
+打开浏览器访问：http://localhost:3080
 
 ## 🚀 启动方式
 
@@ -37,7 +37,7 @@ npm run dev
 
 # 访问地址
 # 前端: http://localhost:5173
-# 后端: http://localhost:5000
+# 后端: http://localhost:3080
 ```
 
 ### 生产模式（推荐用户）
@@ -47,7 +47,7 @@ npm run dev
 ./start.sh
 
 # 访问地址
-# 应用: http://localhost:5000
+# 应用: http://localhost:3080
 ```
 
 ### Docker 部署（推荐运维）
@@ -57,7 +57,7 @@ cd config
 ./deploy.sh
 
 # 访问地址
-# 应用: http://localhost:5000
+# 应用: http://localhost:3080
 ```
 
 ## 📱 功能特性
@@ -134,7 +134,7 @@ cd config
 ## 🎉 开始使用
 
 现在您可以：
-1. 打开浏览器访问 http://localhost:5000
+1. 打开浏览器访问 http://localhost:3080
 2. 拖拽或点击上传图片
 3. 调整压缩设置
 4. 开始压缩并下载结果
