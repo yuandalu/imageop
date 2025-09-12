@@ -484,8 +484,7 @@ function App() {
   return (
     <div className="container">
       <header className="header">
-        <h1>ImageOp</h1>
-        <p>智能图片压缩优化服务 - 采用最优算法，显著减小文件大小</p>
+        <h1>ImageOpimizer</h1>
       </header>
 
       {showUpload ? (
