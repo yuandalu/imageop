@@ -377,7 +377,7 @@ app.post('/api/cleanup', async (req, res) => {
 });
 
 // 前端路由（SPA 支持）
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });
 
