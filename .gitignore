@@ -13,6 +13,9 @@ data/compressed/*
 !data/uploads/.gitkeep
 !data/compressed/.gitkeep
 
+# 二进制文件目录
+bin/
+
 # 日志文件
 *.log
 npm-debug.log*

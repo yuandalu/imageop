@@ -20,7 +20,6 @@ imageop/
 ├── config/                 # 配置文件
 │   ├── docker-compose.yml
 │   ├── Dockerfile
-│   ├── nginx.conf
 │   └── env.example
 ├── data/                   # 数据目录
 │   ├── uploads/           # 上传文件
@@ -79,10 +78,10 @@ npm start
 ```bash
 # 基础部署
 cd config
-docker-compose up -d
+docker compose up -d
 
-# 带 Nginx 反向代理的完整部署
-docker-compose --profile with-nginx up -d
+# 使用部署脚本
+./deploy.sh
 ```
 
 > 📖 详细的部署说明请参考 [完整部署指南](docs/DEPLOYMENT.md)
@@ -126,4 +125,4 @@ npm run build
 - **后端**: Node.js + Express
 - **前端**: React + Vite
 - **压缩**: Sharp + pngquant
-- **部署**: Docker + Nginx
+- **部署**: Docker

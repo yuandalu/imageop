@@ -1,17 +1,38 @@
-# 使用官方 Node.js 运行时作为基础镜像
-FROM node:18-alpine
+# 多阶段构建：构建阶段
+FROM node:20-alpine AS builder
 
 # 设置工作目录
-WORKDIR /app/server
+WORKDIR /app
 
-# 安装系统依赖（Sharp 和 pngquant 需要）
+# 安装系统依赖（构建需要）
 RUN apk add --no-cache \
     libc6-compat \
     vips-dev \
     python3 \
     make \
     g++ \
-    pngquant
+    wget \
+    tar
+
+# 复制前端所有文件并构建前端
+COPY frontend/ ./frontend/
+RUN cd frontend && \
+    npm ci && \
+    npm run build && \
+    npm cache clean --force
+
+# 生产阶段
+FROM node:20-alpine AS production
+
+# 设置工作目录
+WORKDIR /app/server
+
+# 安装系统依赖（运行时需要）
+RUN apk add --no-cache \
+    libc6-compat \
+    vips-dev \
+    wget \
+    tar
 
 # 复制服务端 package.json 和 package-lock.json
 COPY server/package*.json ./
@@ -19,18 +40,22 @@ COPY server/package*.json ./
 # 安装服务端生产依赖
 RUN npm ci --only=production && npm cache clean --force
 
-# 复制前端 package.json
-COPY frontend/package*.json ../frontend/
-
-# 安装前端依赖并构建
-RUN cd ../frontend && \
-    npm ci && \
-    npm run build && \
-    npm cache clean --force
+# 从构建阶段复制前端构建产物
+COPY --from=builder /app/frontend/dist ../frontend/dist
 
 # 复制源代码
 COPY server/src ./src
-COPY frontend/dist ../frontend/dist
+
+# 下载 pngquant 到 bin 目录
+RUN mkdir -p ../bin && \
+    cd ../bin && \
+    wget -O pngquant-linux.tar.bz2 https://pngquant.org/pngquant-linux.tar.bz2 && \
+    tar -xjf pngquant-linux.tar.bz2 && \
+    mv pngquant ./pngquant && \
+    chmod +x ./pngquant && \
+    rm -f pngquant-linux.tar.bz2 && \
+    rm -rf pngquant-* && \
+    cd /app/server
 
 # 创建必要的目录
 RUN mkdir -p ../data/uploads ../data/compressed

@@ -58,12 +58,11 @@ cd config
 
 ```bash
 cd config
-./deploy.sh --with-nginx
+./deploy.sh
 ```
 
 **访问地址：**
-- HTTP: http://localhost:80
-- HTTPS: https://localhost:443
+- 应用: http://localhost:3000
 
 ## 🔧 Docker 配置详解
 
@@ -130,19 +129,6 @@ services:
       retries: 3
       start_period: 40s
 
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - imageop
-    restart: unless-stopped
-    profiles:
-      - with-nginx
 ```
 
 ## 🌐 Nginx 配置
@@ -280,8 +266,8 @@ NODE_ENV=production
 
 4. **Docker 容器启动失败**
    ```bash
-   docker-compose logs imageop
-   docker-compose build --no-cache
+   docker compose logs imageop
+   docker compose build --no-cache
    ```
 
 5. **文件权限问题**
@@ -333,13 +319,11 @@ curl http://localhost/nginx_status
 
 ```bash
 # 查看应用日志
-docker-compose logs -f imageop
+docker compose logs -f imageop
 
-# 查看 Nginx 日志
-docker-compose logs -f nginx
-
-# 分析访问日志
-docker-compose exec nginx tail -f /var/log/nginx/access.log
+# 查看 Nginx 日志（如果使用独立nginx）
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
 ```
 
 ## 🔒 安全配置
@@ -387,6 +371,6 @@ sudo ufw allow 3000  # 仅开发环境
 
 1. **开发环境**：使用 `npm run dev`
 2. **测试环境**：使用 `./start.sh`
-3. **生产环境**：使用 `cd config && ./deploy.sh --with-nginx`
+3. **生产环境**：使用 `cd config && ./deploy.sh`
 
 享受稳定可靠的图片压缩服务！ 🚀

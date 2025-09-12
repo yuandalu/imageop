@@ -54,11 +54,10 @@ npm run dev
 
 ```bash
 cd config
-./deploy.sh --with-nginx
+./deploy.sh
 
 # 访问地址
-# HTTP: http://localhost:80
-# HTTPS: https://localhost:443
+# 应用: http://localhost:3000
 ```
 
 ## 📱 功能特性

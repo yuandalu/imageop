@@ -20,14 +20,6 @@ else
     exit 1
 fi
 
-# 检查 nginx.conf 语法
-echo "📋 检查 nginx.conf..."
-if [ -f "nginx.conf" ]; then
-    echo "✅ nginx.conf 存在"
-else
-    echo "❌ nginx.conf 不存在"
-    exit 1
-fi
 
 # 检查 .dockerignore
 echo "📋 检查 .dockerignore..."
@@ -67,10 +59,8 @@ echo ""
 echo "📝 配置文件说明："
 echo "   - Dockerfile: Docker 镜像构建配置"
 echo "   - docker-compose.yml: 多容器编排配置"
-echo "   - nginx.conf: Nginx 反向代理配置"
 echo "   - .dockerignore: Docker 构建忽略文件"
 echo "   - deploy.sh: 一键部署脚本"
 echo ""
 echo "🚀 使用方法："
-echo "   ./deploy.sh              # 基础部署"
-echo "   ./deploy.sh --with-nginx # 完整部署"
+echo "   ./deploy.sh              # 部署 ImageOp 服务"

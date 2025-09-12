@@ -16,34 +16,37 @@ class PngquantWrapper {
 
   /**
    * 查找 pngquant 可执行文件路径
+   * 优先级：当前目录 > 系统PATH
    */
   findPngquantPath() {
-    // 常见的 pngquant 安装路径
-    const possiblePaths = [
-      'pngquant',
-      '/usr/local/bin/pngquant',
-      '/usr/bin/pngquant',
-      '/opt/homebrew/bin/pngquant',
-      'C:\\Program Files\\pngquant\\pngquant.exe',
-      'C:\\Program Files (x86)\\pngquant\\pngquant.exe'
-    ];
-
-    // 首先尝试系统 PATH 中的 pngquant
+    const fs = require('fs');
+    const path = require('path');
+    
+    // 1. 首先检查项目bin目录下的 pngquant
+    // 从server/src目录向上找到项目根目录
+    const projectRoot = path.resolve(__dirname, '../../');
+    const currentDirPngquant = path.join(projectRoot, 'bin', 'pngquant');
     try {
-      require('child_process').execSync('pngquant --version', { stdio: 'ignore' });
-      return 'pngquant';
-    } catch (error) {
-      // 如果不在 PATH 中，尝试其他路径
-      for (const pngquantPath of possiblePaths) {
-        try {
-          require('child_process').execSync(`"${pngquantPath}" --version`, { stdio: 'ignore' });
-          return pngquantPath;
-        } catch (error) {
-          continue;
-        }
+      if (fs.existsSync(currentDirPngquant) && fs.statSync(currentDirPngquant).isFile()) {
+        // 检查文件是否可执行
+        require('child_process').execSync(`"${currentDirPngquant}" --version`, { stdio: 'ignore' });
+        console.log('✅ 使用项目bin目录下的 pngquant:', currentDirPngquant);
+        return currentDirPngquant;
       }
+    } catch (error) {
+      // 当前目录的pngquant不可用，继续检查系统PATH
     }
 
+    // 2. 检查系统 PATH 中的 pngquant
+    try {
+      require('child_process').execSync('pngquant --version', { stdio: 'ignore' });
+      console.log('✅ 使用系统PATH中的 pngquant');
+      return 'pngquant';
+    } catch (error) {
+      // 系统PATH中也没有
+    }
+
+    console.log('❌ 未找到可用的 pngquant');
     return null;
   }
 
