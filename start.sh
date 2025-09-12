@@ -168,6 +168,6 @@ mkdir -p ../data/uploads ../data/compressed
 
 # 启动服务
 echo "🌟 启动服务..."
-echo "服务将在 http://localhost:3000 启动"
+echo "服务将在 http://localhost:5000 启动"
 echo "按 Ctrl+C 停止服务"
 npm start

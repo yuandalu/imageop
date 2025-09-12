@@ -36,7 +36,7 @@ echo "🐳 启动 ImageOp 服务..."
 docker compose --env-file .env up -d --build
 
 echo "✅ 服务启动成功！"
-echo "📱 访问地址：http://localhost:3000"
+echo "📱 访问地址：http://localhost:5000"
 
 echo ""
 echo "📊 服务状态："

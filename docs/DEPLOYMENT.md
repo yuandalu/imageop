@@ -29,7 +29,7 @@ npm run dev:frontend # 仅前端 (vite)
 
 **访问地址：**
 - 前端开发服务器: http://localhost:5173
-- 后端 API 服务: http://localhost:3000
+- 后端 API 服务: http://localhost:5000
 
 #### 生产模式
 
@@ -43,7 +43,7 @@ npm start
 ```
 
 **访问地址：**
-- 完整应用: http://localhost:3000
+- 完整应用: http://localhost:5000
 
 ### 方式二：Docker 部署
 
@@ -62,7 +62,7 @@ cd docker
 ```
 
 **访问地址：**
-- 应用: http://localhost:3000
+- 应用: http://localhost:5000
 
 ## 🔧 Docker 配置详解
 
@@ -96,11 +96,11 @@ COPY frontend/dist ../frontend/dist
 # 创建数据目录
 RUN mkdir -p ../data/uploads ../data/compressed
 
-EXPOSE 3000
+EXPOSE 5000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+  CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 CMD ["npm", "start"]
 ```
@@ -114,16 +114,16 @@ services:
   imageop:
     build: .
     ports:
-      - "3000:3000"
+      - "5000:5000"
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - PORT=${PORT:-3000}
+      - PORT=${PORT:-5000}
     volumes:
       - ../data/uploads:/app/data/uploads
       - ../data/compressed:/app/data/compressed
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -166,7 +166,7 @@ http {
     
     # 上游服务器
     upstream imageop_backend {
-        server imageop:3000;
+        server imageop:5000;
     }
     
     server {
@@ -236,7 +236,7 @@ nano docker/.env
 
 ```env
 # 服务器配置
-PORT=3000
+PORT=5000
 NODE_ENV=production
 ```
 
@@ -309,7 +309,7 @@ NODE_ENV=production
 
 ```bash
 # 检查服务状态
-curl http://localhost:3000/api/health
+curl http://localhost:5000/api/health
 
 # 检查 Nginx 状态
 curl http://localhost/nginx_status
@@ -343,7 +343,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 # 开放必要端口
 sudo ufw allow 80
 sudo ufw allow 443
-sudo ufw allow 3000  # 仅开发环境
+sudo ufw allow 5000  # 仅开发环境
 ```
 
 ## 📈 生产环境最佳实践
