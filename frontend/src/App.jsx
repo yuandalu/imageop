@@ -187,7 +187,7 @@ function App() {
         // WebP 参数
         formData.append('webpQuality', settings.webpQuality);
 
-        const response = await axios.post('/api/compress/batch', formData, {
+        const response = await axios.post('./api/compress/batch', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
