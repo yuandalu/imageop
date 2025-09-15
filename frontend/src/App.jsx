@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Download, Eye, Settings, CheckCircle, AlertCircle, Archive } from 'lucide-react';
 import axios from 'axios';
-import { zip } from 'fflate';
+import { zipSync } from 'fflate';
 import './index.css';
 
 function App() {
@@ -280,13 +280,8 @@ function App() {
         return;
       }
 
-      zip(filesToZip, (err, data) => {
-        if (err) {
-          setError('ZIP打包失败，请重试');
-          setLoading(false);
-          return;
-        }
-
+      try {
+        const data = zipSync(filesToZip);
         const zipBlob = new Blob([data], { type: 'application/zip' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
@@ -295,10 +290,13 @@ function App() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
-        
+
         setSuccess(`成功打包并下载 ${successfulResults.length} 张压缩图片`);
         setLoading(false);
-      });
+      } catch (err) {
+        setError('ZIP打包失败，请重试');
+        setLoading(false);
+      }
       
     } catch (error) {
       setError('ZIP打包失败，请重试');
@@ -474,6 +472,7 @@ function App() {
   function PreviewModal({ result, onClose }) {
     const [sliderPosition, setSliderPosition] = useState(50); // 滑块位置 (0-100)
     const [isDragging, setIsDragging] = useState(false);
+    const comparisonRef = useRef(null);
 
     const handleMouseDown = (e) => {
       setIsDragging(true);
@@ -481,9 +480,9 @@ function App() {
     };
 
     const handleMouseMove = (e) => {
-      if (!isDragging) return;
+      if (!isDragging || !comparisonRef.current) return;
       
-      const rect = e.currentTarget.getBoundingClientRect();
+      const rect = comparisonRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
       setSliderPosition(percentage);
@@ -527,7 +526,7 @@ function App() {
           </div>
           
           <div className="preview-content">
-            <div className="comparison-container" onMouseMove={handleMouseMove}>
+            <div className="comparison-container" ref={comparisonRef} onMouseMove={handleMouseMove}>
               <div className="comparison-image-container">
                 <img 
                   src={result.originalUrl} 
