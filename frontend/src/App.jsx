@@ -21,9 +21,9 @@ function App() {
     pngquantMax: 80,  // pngquant 最大质量
     pngquantSpeed: 3,  // pngquant 速度 (1-11)
     // JPEG 压缩参数
-    jpegQuality: 80,  // JPEG 质量 (60-95)
+    jpegQuality: 60,  // JPEG 质量 (60-95)
     // WebP 压缩参数
-    webpQuality: 80   // WebP 质量 (60-95)
+    webpQuality: 60   // WebP 质量 (60-95)
   });
   const [compressionCache, setCompressionCache] = useState(new Map()); // 压缩结果缓存
 
@@ -623,9 +623,36 @@ function App() {
           <div className="file-list">
             {files.map((file, index) => {
               const result = results.find(r => r.original && r.original.filename === file.name);
+              
+              // 处理预览点击
+              const handlePreviewClick = () => {
+                if (result && result.success) {
+                  // 有压缩结果，显示对比界面
+                  setPreviewModal(result);
+                } else {
+                  // 没有压缩结果，显示原图预览
+                  setPreviewModal({
+                    success: true,
+                    original: {
+                      filename: file.name,
+                      size: file.size,
+                      dimensions: '未知尺寸',
+                      format: file.type.split('/')[1]?.toUpperCase() || 'UNKNOWN'
+                    },
+                    compressed: {
+                      filename: file.name,
+                      size: file.size,
+                      compressionRatio: 0
+                    },
+                    downloadUrl: URL.createObjectURL(file),
+                    originalUrl: URL.createObjectURL(file)
+                  });
+                }
+              };
+              
               return (
                 <div key={index} className="file-item">
-                  <div className="file-preview">
+                  <div className="file-preview" onClick={handlePreviewClick} style={{ cursor: 'pointer' }}>
                     <FileThumbnail file={file} />
                     <div className="file-name">{file.name}</div>
                   </div>
@@ -755,6 +782,22 @@ function App() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          
+          {/* 使用说明提示 */}
+          <div className="usage-tips">
+            <div className="tips-header">
+              <span className="tips-icon">💡</span>
+              <span className="tips-title">压缩优化建议</span>
+            </div>
+            <div className="tips-content">
+              <p><strong>压缩后请点击预览查看效果：</strong></p>
+              <ul>
+                <li><strong>PNG图片：</strong>如果损失较大，请关闭"有损压缩"选项</li>
+                <li><strong>其他图片：</strong>如果损失较大，请提高质量值（建议先+10，符合预期后再-5），这样可以快速确定最佳质量</li>
+                <li><strong>重要提醒：</strong>一次失误优化可能带来极高的成本损失，请仔细调整参数</li>
+              </ul>
             </div>
           </div>
         </div>

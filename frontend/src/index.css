@@ -927,6 +927,63 @@ body {
   border: 1px solid #e5e7eb;
 }
 
+/* 使用说明提示样式 */
+.usage-tips {
+  margin-top: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+}
+
+.tips-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #0369a1;
+}
+
+.tips-icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.tips-title {
+  font-size: 16px;
+  color: #0369a1;
+}
+
+.tips-content {
+  color: #0c4a6e;
+  line-height: 1.6;
+}
+
+.tips-content p {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.tips-content ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.tips-content li {
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.tips-content li:last-child {
+  margin-bottom: 0;
+}
+
+.tips-content strong {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .png-config-container {
   position: relative;
   border: 1px solid #d1d5db;
