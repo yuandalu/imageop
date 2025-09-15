@@ -190,8 +190,8 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
             size: result.compressedSize,
             compressionRatio: result.compressionRatio
           },
-          downloadUrl: `/compressed/compressed-${file.filename}`,
-          originalUrl: `/uploads/${file.filename}`
+          downloadUrl: `./compressed/compressed-${file.filename}`,
+          originalUrl: `./uploads/${file.filename}`
         });
       } else {
         results.push({
