@@ -180,7 +180,7 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
         results.push({
           success: true,
           original: {
-            filename: file.originalname,
+            filename: Buffer.from(file.originalname, 'latin1').toString('utf8'),
             size: result.originalSize,
             dimensions: result.analysis ? `${result.analysis.width}x${result.analysis.height}` : '未知尺寸',
             format: result.analysis ? result.analysis.format : 'UNKNOWN'
@@ -196,7 +196,7 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
       } else {
         results.push({
           success: false,
-          filename: file.originalname,
+          filename: Buffer.from(file.originalname, 'latin1').toString('utf8'),
           error: result.error
         });
       }

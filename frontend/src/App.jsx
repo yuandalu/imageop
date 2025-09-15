@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Download, Eye, Settings, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Download, Eye, Settings, CheckCircle, AlertCircle, Archive } from 'lucide-react';
 import axios from 'axios';
+import { zip } from 'fflate';
 import './index.css';
 
 function App() {
@@ -249,6 +250,62 @@ function App() {
     });
   };
 
+  const downloadAsZip = async () => {
+    try {
+      const successfulResults = results.filter(result => result.success);
+      
+      if (successfulResults.length === 0) {
+        setError('没有可下载的压缩图片');
+        return;
+      }
+
+      setLoading(true);
+      setSuccess('正在打包ZIP文件...');
+
+      const filesToZip = {};
+      
+      for (const result of successfulResults) {
+        try {
+          const response = await axios.get(result.downloadUrl, { responseType: 'arraybuffer' });
+          const uint8Array = new Uint8Array(response.data);
+          filesToZip[result.original.filename] = uint8Array;
+        } catch (error) {
+          console.error(`下载文件失败: ${result.original.filename}`, error);
+        }
+      }
+
+      if (Object.keys(filesToZip).length === 0) {
+        setError('没有有效的压缩图片可以打包');
+        setLoading(false);
+        return;
+      }
+
+      zip(filesToZip, (err, data) => {
+        if (err) {
+          setError('ZIP打包失败，请重试');
+          setLoading(false);
+          return;
+        }
+
+        const zipBlob = new Blob([data], { type: 'application/zip' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = `compressed-images-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        
+        setSuccess(`成功打包并下载 ${successfulResults.length} 张压缩图片`);
+        setLoading(false);
+      });
+      
+    } catch (error) {
+      setError('ZIP打包失败，请重试');
+      setLoading(false);
+    }
+  };
+
   const reUpload = () => {
     setFiles([]);
     setResults([]);
@@ -332,6 +389,28 @@ function App() {
     });
   };
 
+  // 计算压缩状态和百分比
+  const getCompressionStatus = (file, result) => {
+    if (!result || !result.success) {
+      return { status: 'waiting', percentage: 0, color: '#6b7280' };
+    }
+
+    const originalSize = file.size;
+    const compressedSize = result.compressed.size;
+    const percentage = Math.round(((originalSize - compressedSize) / originalSize) * 100);
+    
+    if (percentage > 0) {
+      // 压缩成功，文件变小
+      return { status: 'compressed', percentage, color: '#10b981' };
+    } else if (percentage === 0) {
+      // 无变化
+      return { status: 'no-change', percentage: 0, color: '#ef4444' };
+    } else {
+      // 文件变大
+      return { status: 'increased', percentage: Math.abs(percentage), color: '#ef4444' };
+    }
+  };
+
   // 文件信息组件
   function FileInfo({ file, result }) {
     const [dimensions, setDimensions] = useState('加载中...');
@@ -355,6 +434,9 @@ function App() {
     const compressedFormat = result?.original?.format?.toUpperCase() || 'PNG';
     const compressedSize = result?.compressed?.size ? formatFileSize(result.compressed.size) : '';
 
+    // 获取压缩状态
+    const compressionStatus = getCompressionStatus(file, result);
+
     return (
       <div className="file-info">
         <div className="file-info-item">
@@ -370,7 +452,10 @@ function App() {
         {result && result.success ? (
           <div className="file-info-item">
             <span className="file-info-label">压缩后</span>
-            <span className="file-info-value">
+            <span 
+              className="file-info-value"
+              style={{ color: compressionStatus.color }}
+            >
               {compressedFormat} {compressedSize}
               {isCached && <span className="cache-indicator"> (缓存)</span>}
             </span>
@@ -518,18 +603,21 @@ function App() {
               >
                 {loading ? '压缩中...' : '开始压缩'}
               </button>
-              <button className="btn-secondary" onClick={reUpload}>
-                重新上传
-              </button>
               <button className="btn-secondary" onClick={addMoreImages}>
                 <Upload style={{ width: '16px', height: '16px', marginRight: '8px' }} />
                 添加图片
+              </button>
+              <button className="btn-secondary" onClick={reUpload}>
+                重新上传
               </button>
               <button className="btn-primary" onClick={downloadAll}>
                 <Download style={{ width: '16px', height: '16px', marginRight: '8px' }} />
                 全部下载
               </button>
-              <button className="btn-zip">ZIP</button>
+              <button className="btn-zip" onClick={downloadAsZip} disabled={loading}>
+                <Archive style={{ width: '16px', height: '16px', marginRight: '8px' }} />
+                ZIP
+              </button>
             </div>
           </div>
           
@@ -555,6 +643,13 @@ function App() {
                           <button className="btn-download" onClick={() => downloadSingle(result)}>
                             <Download style={{ width: '12px', height: '12px' }} />
                           </button>
+                          <div 
+                            className="compression-percentage"
+                            style={{ color: getCompressionStatus(file, result).color }}
+                          >
+                            {getCompressionStatus(file, result).status === 'compressed' && '-'}
+                            {getCompressionStatus(file, result).percentage}%
+                          </div>
                         </>
                       ) : null}
                     </div>

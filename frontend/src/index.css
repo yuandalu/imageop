@@ -554,6 +554,11 @@ body {
   text-align: center;
   word-break: break-all;
   max-width: 80px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.2;
 }
 
 .file-details {
@@ -629,6 +634,21 @@ body {
 
 .btn-download:hover {
   background: #2563eb;
+}
+
+.compression-percentage {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  min-width: 40px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  box-sizing: border-box;
 }
 
 
