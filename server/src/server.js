@@ -48,7 +48,47 @@ async function checkPngquantRequirement() {
 const optimizer = new CompressionOptimizer();
 
 // 中间件配置
-app.use(helmet());
+// CSP配置 - 支持环境变量自定义
+const cspConfig = {
+  directives: {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "img-src": ["'self'", "data:", "blob:"],
+    "worker-src": ["'self'", "blob:"],
+    "frame-src": ["'self'"],
+    "frame-ancestors": ["'self'", "http://*.21:8000"],
+    "connect-src": ["'self'"],
+    "object-src": ["'none'"]  // 明确禁止object标签，提高安全性
+  }
+};
+
+// 从环境变量读取iframe白名单
+if (process.env.CSP_FRAME_SRC) {
+  console.log('CSP_FRAME_SRC', process.env.CSP_FRAME_SRC);
+  const frameSources = process.env.CSP_FRAME_SRC.split(',').map(src => src.trim());
+  cspConfig.directives["frame-src"] = ["'self'", ...frameSources];
+}
+if (process.env.CSP_FRAME_ANCESTORS) {
+  const frameAncestors = process.env.CSP_FRAME_ANCESTORS.split(',').map(src => src.trim());
+  cspConfig.directives["frame-ancestors"] = ["'self'", ...frameAncestors];
+}
+
+// 从环境变量读取其他CSP配置
+if (process.env.CSP_SCRIPT_SRC) {
+  const scriptSources = process.env.CSP_SCRIPT_SRC.split(',').map(src => src.trim());
+  cspConfig.directives["script-src"] = ["'self'", "'unsafe-inline'", "'unsafe-eval'", ...scriptSources];
+}
+
+if (process.env.CSP_CONNECT_SRC) {
+  const connectSources = process.env.CSP_CONNECT_SRC.split(',').map(src => src.trim());
+  cspConfig.directives["connect-src"] = ["'self'", ...connectSources];
+}
+
+
+app.use(helmet({
+  contentSecurityPolicy: cspConfig
+}));
 app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
