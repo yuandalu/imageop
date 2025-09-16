@@ -1,3 +1,9 @@
+// 先引入 path 模块
+const path = require('path');
+
+// 加载环境变量配置（从根目录的.env文件）
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -5,7 +11,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs-extra');
-const path = require('path');
 const CompressionOptimizer = require('./compression-optimizer');
 
 const app = express();
@@ -57,7 +62,7 @@ const cspConfig = {
     "img-src": ["'self'", "data:", "blob:"],
     "worker-src": ["'self'", "blob:"],
     "frame-src": ["'self'"],
-    "frame-ancestors": ["'self'", "http://*.21:8000"],
+    "frame-ancestors": ["'self'"],
     "connect-src": ["'self'"],
     "object-src": ["'none'"]  // 明确禁止object标签，提高安全性
   }

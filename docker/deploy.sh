@@ -23,17 +23,17 @@ fi
 echo "📁 创建必要目录..."
 mkdir -p ../data/uploads ../data/compressed
 
-# 检查环境变量文件
-if [ ! -f ".env" ]; then
-    echo "📝 创建环境变量文件..."
-    cp env.example .env
-    echo "✅ 已创建 .env 文件，请根据需要修改配置"
+# 检查根目录的业务环境变量文件
+if [ ! -f "../.env" ]; then
+    echo "📝 创建业务环境变量文件..."
+    cp ../.env.example ../.env
+    echo "✅ 已创建业务 .env 文件，请根据需要修改配置"
 fi
 
 echo "🐳 启动 ImageOp 服务..."
 
-# 启动服务
-docker compose --env-file .env up -d --build
+# 启动服务（使用根目录的 .env 文件）
+docker compose up -d --build
 
 echo "✅ 服务启动成功！"
 echo "📱 访问地址：http://localhost:3080"
