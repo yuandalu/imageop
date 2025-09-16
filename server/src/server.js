@@ -23,8 +23,12 @@ const config = {
   maxFiles: parseInt(process.env.MAX_FILES) || 100,
   cleanupInterval: parseInt(process.env.CLEANUP_INTERVAL) || 5 * 60 * 1000, // 5分钟
   fileRetentionTime: parseInt(process.env.FILE_RETENTION_TIME) || 30 * 60 * 1000, // 30分钟
-  uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '../../data/uploads'),
-  compressedDir: process.env.COMPRESSED_DIR || path.join(__dirname, '../../data/compressed')
+  uploadsDir: process.env.UPLOADS_DIR ? 
+    (path.isAbsolute(process.env.UPLOADS_DIR) ? process.env.UPLOADS_DIR : path.resolve(__dirname, process.env.UPLOADS_DIR)) : 
+    path.join(__dirname, '../../data/uploads'),
+  compressedDir: process.env.COMPRESSED_DIR ? 
+    (path.isAbsolute(process.env.COMPRESSED_DIR) ? process.env.COMPRESSED_DIR : path.resolve(__dirname, process.env.COMPRESSED_DIR)) : 
+    path.join(__dirname, '../../data/compressed')
 };
 
 // 检查 pngquant 是否安装
@@ -100,8 +104,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 静态文件服务
-app.use('/uploads', express.static(path.join(__dirname, '../../data/uploads')));
-app.use('/compressed', express.static(path.join(__dirname, '../../data/compressed')));
+app.use('/uploads', express.static(config.uploadsDir));
+app.use('/compressed', express.static(config.compressedDir));
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 
 // 确保目录存在
