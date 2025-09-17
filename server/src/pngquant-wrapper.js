@@ -169,9 +169,18 @@ class PngquantWrapper {
     } catch (error) {
       console.error('❌ pngquant 压缩失败:', error.message);
       console.error('stderr:', error.stderr);
+      
+      // 清理错误信息中的路径，保留其他信息
+      let cleanError = error.message;
+      // 替换文件路径为占位符
+      cleanError = cleanError.replace(/\/[^\s"]+\.png/g, '[文件路径]');
+      cleanError = cleanError.replace(/\/[^\s"]+/g, '[路径]');
+      // 替换引号中的路径
+      cleanError = cleanError.replace(/"[^"]*\/[^"]*"/g, '"[路径]"');
+      
       return {
         success: false,
-        error: error.message,
+        error: cleanError,
         command: command,
         stderr: error.stderr
       };

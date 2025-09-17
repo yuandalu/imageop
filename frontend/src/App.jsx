@@ -14,6 +14,7 @@ function App() {
   const [showUpload, setShowUpload] = useState(true); // 控制显示上传界面还是文件列表
   const [isAddingMore, setIsAddingMore] = useState(false); // 是否正在添加更多图片
   const [previewModal, setPreviewModal] = useState(null); // 预览模态框数据
+  const [errorModal, setErrorModal] = useState(null); // 错误模态框数据
   const [settings, setSettings] = useState({
     // PNG 压缩参数
     lossy: true,  // 启用有损压缩以获得最佳效果
@@ -239,7 +240,7 @@ function App() {
 
   const downloadAll = () => {
     results.forEach(result => {
-      if (result.success) {
+      if (result.success && result.compressed && result.compressed.compressionRatio > 0) {
         const link = document.createElement('a');
         link.href = result.downloadUrl;
         link.download = result.compressed.filename;
@@ -252,7 +253,9 @@ function App() {
 
   const downloadAsZip = async () => {
     try {
-      const successfulResults = results.filter(result => result.success);
+      const successfulResults = results.filter(result => 
+        result.success && result.compressed && result.compressed.compressionRatio > 0
+      );
       
       if (successfulResults.length === 0) {
         setError('没有可下载的压缩图片');
@@ -458,6 +461,26 @@ function App() {
               {isCached && <span className="cache-indicator"> (缓存)</span>}
             </span>
           </div>
+        ) : result && result.success === false ? (
+          <div className="file-info-item">
+            <span className="file-info-label">压缩后</span>
+            <div className="error-display">
+              <span className="error-status">❌ 失败</span>
+              <button 
+                className="error-details-btn"
+                onClick={() => {
+                  console.log('点击查看详情按钮', { error: result.error, filename: file.name });
+                  setErrorModal({ 
+                    show: true, 
+                    error: result.error, 
+                    filename: file.name 
+                  });
+                }}
+              >
+                详情
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="file-info-item">
             <span className="file-info-label">压缩后</span>
@@ -516,9 +539,11 @@ function App() {
           <div className="preview-header">
             <h3>预览 左右滑动可查看压缩前后效果对比图</h3>
             <div className="preview-actions">
-              <button className="preview-download" onClick={() => downloadSingle(result)}>
-                <Download style={{ width: '16px', height: '16px' }} />
-              </button>
+              {result.compressed && result.compressed.compressionRatio > 0 ? (
+                <button className="preview-download" onClick={() => downloadSingle(result)}>
+                  <Download style={{ width: '16px', height: '16px' }} />
+                </button>
+              ) : null}
               <button className="preview-close" onClick={onClose}>
                 ×
               </button>
@@ -559,6 +584,62 @@ function App() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 错误模态框组件
+  function ErrorModal({ errorModal, onClose }) {
+    console.log('ErrorModal渲染', errorModal);
+    if (!errorModal) return null;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    const copyError = async () => {
+      try {
+        await navigator.clipboard.writeText(errorModal.error);
+        // 可以添加一个简单的提示
+      } catch (err) {
+        console.error('复制失败:', err);
+      }
+    };
+
+    useEffect(() => {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }, []);
+
+    return (
+      <div className="error-modal-overlay" onClick={onClose}>
+        <div className="error-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="error-modal-header">
+            <h3>压缩失败详情</h3>
+            <button className="error-modal-close" onClick={onClose}>×</button>
+          </div>
+          <div className="error-modal-content">
+            <div className="error-filename">{errorModal.filename}</div>
+            <div className="error-message">
+              <pre>{errorModal.error}</pre>
+            </div>
+          </div>
+          <div className="error-modal-actions">
+            <button 
+              className="btn-copy" 
+              onClick={copyError}
+            >
+              复制错误信息
+            </button>
+            <button className="btn-close" onClick={onClose}>
+              关闭
+            </button>
           </div>
         </div>
       </div>
@@ -622,7 +703,13 @@ function App() {
           
           <div className="file-list">
             {files.map((file, index) => {
-              const result = results.find(r => r.original && r.original.filename === file.name);
+              const result = results.find(r => {
+                // 成功的压缩结果有 original.filename
+                if (r.original && r.original.filename === file.name) return true;
+                // 失败的压缩结果直接有 filename
+                if (r.filename === file.name) return true;
+                return false;
+              });
               
               // 处理预览点击
               const handlePreviewClick = () => {
@@ -666,14 +753,17 @@ function App() {
                           <button className="btn-preview" onClick={() => setPreviewModal(result)}>
                             <Eye style={{ width: '12px', height: '12px' }} />
                           </button>
-                          <button className="btn-download" onClick={() => downloadSingle(result)}>
-                            <Download style={{ width: '12px', height: '12px' }} />
-                          </button>
+                          {result.compressed && result.compressed.compressionRatio > 0 ? (
+                            <button className="btn-download" onClick={() => downloadSingle(result)}>
+                              <Download style={{ width: '12px', height: '12px' }} />
+                            </button>
+                          ) : null}
                           <div 
                             className="compression-percentage"
                             style={{ color: getCompressionStatus(file, result).color }}
                           >
                             {getCompressionStatus(file, result).status === 'compressed' && '-'}
+                            {getCompressionStatus(file, result).status === 'increased' && '+'}
                             {getCompressionStatus(file, result).percentage}%
                           </div>
                         </>
@@ -828,6 +918,13 @@ function App() {
         <PreviewModal 
           result={previewModal} 
           onClose={() => setPreviewModal(null)} 
+        />
+      )}
+
+      {errorModal && (
+        <ErrorModal 
+          errorModal={errorModal} 
+          onClose={() => setErrorModal(null)} 
         />
       )}
     </div>

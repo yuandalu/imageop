@@ -282,9 +282,18 @@ class CompressionOptimizer {
       
     } catch (error) {
       console.error('智能压缩失败:', error);
+      
+      // 清理错误信息中的路径，保留其他信息
+      let cleanError = error.message;
+      // 替换文件路径为占位符
+      cleanError = cleanError.replace(/\/[^\s"]+\.(png|jpg|jpeg|webp|bmp)/gi, '[文件路径]');
+      cleanError = cleanError.replace(/\/[^\s"]+/g, '[路径]');
+      // 替换引号中的路径
+      cleanError = cleanError.replace(/"[^"]*\/[^"]*"/g, '"[路径]"');
+      
       return {
         success: false,
-        error: error.message
+        error: cleanError
       };
     }
   }
