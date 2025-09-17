@@ -151,7 +151,12 @@ class CompressionOptimizer {
    */
   getOptimalConfig(analysis, userOptions = {}) {
     const profile = analysis.profile;
-    const format = analysis.format;
+    let format = analysis.format;
+    
+    // 如果强制转换为JPEG，修改格式
+    if (userOptions.forceFormat === 'jpeg') {
+      format = 'jpeg';
+    }
     
     let config = this.compressionProfiles[profile][format] || 
                  this.compressionProfiles.photo[format] ||
@@ -216,6 +221,18 @@ class CompressionOptimizer {
           break;
           
         case 'png':
+          // 如果强制转换为JPEG，跳过PNG处理
+          if (userOptions.forceFormat === 'jpeg') {
+            console.log('🔄 PNG转JPEG，使用Sharp进行转换');
+            pipeline = pipeline.jpeg({
+              quality: config.quality,
+              progressive: config.progressive,
+              mozjpeg: config.mozjpeg,
+              optimizeScans: config.optimizeScans
+            });
+            break;
+          }
+          
           // PNG 必须使用 pngquant 命令行工具
           console.log('🚀 使用 pngquant 命令行工具进行 PNG 压缩');
           

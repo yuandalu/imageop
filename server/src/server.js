@@ -164,10 +164,16 @@ const compressionConfigs = {
 };
 
 // 智能图片压缩函数
-async function compressImage(inputPath, outputPath, originalFormat, options = {}) {
+async function compressImage(inputPath, outputPath, originalFormat, options = {}, shouldConvertToJpeg = false) {
   try {
+    // 如果需要转换为JPEG，修改选项
+    const compressionOptions = { ...options };
+    if (shouldConvertToJpeg && originalFormat === 'image/png') {
+      compressionOptions.forceFormat = 'jpeg';
+    }
+    
     // 使用智能压缩优化器
-    const result = await optimizer.compressImage(inputPath, outputPath, options);
+    const result = await optimizer.compressImage(inputPath, outputPath, compressionOptions);
     
     if (result.success) {
       return {
@@ -219,15 +225,33 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
       webpQuality: parseInt(req.body.webpQuality) || 80
     };
     
+    // 获取需要转换为JPEG的文件列表
+    const convertToJpegFiles = Array.isArray(req.body.convertToJpeg) 
+      ? req.body.convertToJpeg 
+      : req.body.convertToJpeg ? [req.body.convertToJpeg] : [];
+    
     for (const file of req.files) {
       const inputPath = file.path;
-      const outputPath = path.join(compressedDir, `compressed-${file.filename}`);
+      let outputPath = path.join(compressedDir, `compressed-${file.filename}`);
       
-      const result = await compressImage(inputPath, outputPath, file.mimetype, options);
+      // 检查是否需要转换为JPEG
+      const shouldConvertToJpeg = convertToJpegFiles.includes(file.originalname);
+      if (shouldConvertToJpeg && file.mimetype === 'image/png') {
+        // 修改输出文件扩展名为.jpg
+        outputPath = outputPath.replace(/\.png$/i, '.jpg');
+      }
+      
+      const result = await compressImage(inputPath, outputPath, file.mimetype, options, shouldConvertToJpeg);
       
       if (result.success) {
+        // 根据是否转换来确定文件名和下载URL
+        const compressedFilename = shouldConvertToJpeg 
+          ? `compressed-${file.filename.replace(/\.png$/i, '.jpg')}`
+          : `compressed-${file.filename}`;
+        
         results.push({
           success: true,
+          convertedToJpeg: shouldConvertToJpeg, // 添加转换标识
           original: {
             filename: Buffer.from(file.originalname, 'latin1').toString('utf8'),
             size: result.originalSize,
@@ -235,11 +259,11 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
             format: result.analysis ? result.analysis.format : 'UNKNOWN'
           },
           compressed: {
-            filename: `compressed-${file.filename}`,
+            filename: compressedFilename,
             size: result.compressedSize,
             compressionRatio: result.compressionRatio
           },
-          downloadUrl: `./compressed/compressed-${file.filename}`,
+          downloadUrl: `./compressed/${compressedFilename}`,
           originalUrl: `./uploads/${file.filename}`
         });
       } else {

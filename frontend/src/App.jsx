@@ -27,6 +27,7 @@ function App() {
     webpQuality: 60   // WebP 质量 (60-95)
   });
   const [compressionCache, setCompressionCache] = useState(new Map()); // 压缩结果缓存
+  const [convertToJpeg, setConvertToJpeg] = useState(new Map()); // PNG转JPEG选项
 
   // 自动隐藏success提示
   useEffect(() => {
@@ -78,7 +79,8 @@ function App() {
         lossy: baseSettings.lossy,
         pngquantMin: baseSettings.pngquantMin,
         pngquantMax: baseSettings.pngquantMax,
-        pngquantSpeed: baseSettings.pngquantSpeed
+        pngquantSpeed: baseSettings.pngquantSpeed,
+        convertToJpeg: convertToJpeg.get(file.name) || false // 添加转换选项
       },
       jpeg: {
         jpegQuality: baseSettings.jpegQuality
@@ -176,6 +178,10 @@ function App() {
         const formData = new FormData();
         filesToCompress.forEach(({ file }) => {
           formData.append('images', file);
+          // 添加转换选项
+          if (convertToJpeg.get(file.name)) {
+            formData.append('convertToJpeg', file.name);
+          }
         });
         
         // PNG 参数
@@ -435,6 +441,11 @@ function App() {
     const compressedFormat = result?.original?.format?.toUpperCase() || 'PNG';
     const compressedSize = result?.compressed?.size ? formatFileSize(result.compressed.size) : '';
 
+    // 检查是否进行了格式转换（只有在真正转换完成后才显示）
+    const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+    const wasConverted = isPng && result?.success && result?.convertedToJpeg;
+    const displayFormat = wasConverted ? 'JPEG' : compressedFormat;
+
     // 获取压缩状态
     const compressionStatus = getCompressionStatus(file, result);
 
@@ -448,6 +459,7 @@ function App() {
           <span className="file-info-label">原图</span>
           <span className="file-info-value">
             {fileType} {fileSize}
+            {wasConverted && <span className="convert-arrow-icon">↓</span>}
           </span>
         </div>
         {result && result.success ? (
@@ -457,7 +469,7 @@ function App() {
               className="file-info-value"
               style={{ color: compressionStatus.color }}
             >
-              {compressedFormat} {compressedSize}
+              {displayFormat} {compressedSize}
               {isCached && <span className="cache-indicator"> (缓存)</span>}
             </span>
           </div>
@@ -696,7 +708,7 @@ function App() {
               </button>
               <button className="btn-zip" onClick={downloadAsZip} disabled={loading}>
                 <Archive style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-                ZIP
+                打包下载
               </button>
             </div>
           </div>
@@ -737,8 +749,31 @@ function App() {
                 }
               };
               
+              // 检查是否为PNG文件
+              const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+              
               return (
                 <div key={index} className="file-item">
+                  {isPng && (
+                    <div className="convert-option">
+                      <label className="convert-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={convertToJpeg.get(file.name) || false}
+                          onChange={(e) => {
+                            const newConvertToJpeg = new Map(convertToJpeg);
+                            if (e.target.checked) {
+                              newConvertToJpeg.set(file.name, true);
+                            } else {
+                              newConvertToJpeg.delete(file.name);
+                            }
+                            setConvertToJpeg(newConvertToJpeg);
+                          }}
+                        />
+                        <span className="convert-label">转JPEG</span>
+                      </label>
+                    </div>
+                  )}
                   <div className="file-preview" onClick={handlePreviewClick} style={{ cursor: 'pointer' }}>
                     <FileThumbnail file={file} />
                     <div className="file-name">{file.name}</div>
@@ -882,14 +917,15 @@ function App() {
               <span className="tips-title">压缩优化建议</span>
             </div>
             <div className="tips-content">
-              <p><strong>压缩后请点击预览查看效果：</strong></p>
               <ul>
-                <li><strong>PNG图片：</strong>如果损失较大，请关闭"有损压缩"选项</li>
+                <li><strong>预览对比：</strong>点击小眼睛，拖拽滑动条可对比压缩前后的效果</li>
+                <li><strong>PNG图片：</strong>如果损失较大，请关闭"有损压缩"选项；如果压缩不理想，转为JPG格式后进行压缩</li>
                 <li><strong>其他图片：</strong>如果损失较大，请提高质量值（建议先+10，符合预期后再-5），这样可以快速确定最佳质量</li>
-                <li><strong>重要提醒：</strong>一次失误优化可能带来极高的成本损失，请仔细调整参数</li>
+                <li><strong>尺寸说明：</strong>图片尺寸不宜过大，请尽量使用符合实际情况的尺寸，否则压缩效果不佳</li>
+                <li><strong>重要提醒：</strong>无优化的图片可能带来极高的成本损失，请尽量达到最佳优化效果</li>
               </ul>
             </div>
-          </div>
+          </div>  
         </div>
       )}
 

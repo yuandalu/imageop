@@ -483,6 +483,8 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
 }
 
 .btn-zip:hover {
@@ -590,6 +592,7 @@ body {
 .file-info-value {
   font-size: 14px;
   color: #6b7280;
+  position: relative;
 }
 
 .file-actions {
@@ -1463,6 +1466,60 @@ body {
 .error-details-btn:hover {
   background: #e5e7eb;
   border-color: #9ca3af;
+}
+
+/* PNG转JPEG选项样式 - 位于file-item右上角 */
+.convert-option {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+.convert-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.convert-checkbox:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: #3b82f6;
+}
+
+.convert-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.convert-label {
+  color: #374151;
+  user-select: none;
+}
+
+.convert-checkbox:hover .convert-label {
+  color: #3b82f6;
+}
+
+/* 转换箭头样式 - 在原图行右侧对齐 */
+.convert-arrow-icon {
+  position: absolute;
+  left: 10px;
+  top: 120%;
+  transform: translateY(-50%);
+  color: #059630;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 5;
 }
 
 /* 动画 */
