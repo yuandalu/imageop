@@ -164,7 +164,7 @@ cd ../server
 
 # 创建必要的目录
 echo "📁 创建必要目录..."
-mkdir -p ../data/uploads ../data/compressed
+mkdir -p ../data/uploads ../data/compressed ../data/resized
 
 # 启动服务
 echo "🌟 启动服务..."

@@ -10,8 +10,10 @@ frontend/build/
 # 数据目录
 data/uploads/*
 data/compressed/*
+data/resized/*
 !data/uploads/.gitkeep
 !data/compressed/.gitkeep
+!data/resized/.gitkeep
 
 # 二进制文件目录
 bin/

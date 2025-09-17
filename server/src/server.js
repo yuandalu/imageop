@@ -28,7 +28,10 @@ const config = {
     path.join(__dirname, '../../data/uploads'),
   compressedDir: process.env.COMPRESSED_DIR ? 
     (path.isAbsolute(process.env.COMPRESSED_DIR) ? process.env.COMPRESSED_DIR : path.resolve(__dirname, process.env.COMPRESSED_DIR)) : 
-    path.join(__dirname, '../../data/compressed')
+    path.join(__dirname, '../../data/compressed'),
+  resizedDir: process.env.RESIZED_DIR ? 
+    (path.isAbsolute(process.env.RESIZED_DIR) ? process.env.RESIZED_DIR : path.resolve(__dirname, process.env.RESIZED_DIR)) : 
+    path.join(__dirname, '../../data/resized')
 };
 
 // 检查 pngquant 是否安装
@@ -106,13 +109,16 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // 静态文件服务
 app.use('/uploads', express.static(config.uploadsDir));
 app.use('/compressed', express.static(config.compressedDir));
+app.use('/resized', express.static(config.resizedDir));
 app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 
 // 确保目录存在
 const uploadsDir = config.uploadsDir;
 const compressedDir = config.compressedDir;
+const resizedDir = config.resizedDir;
 fs.ensureDirSync(uploadsDir);
 fs.ensureDirSync(compressedDir);
+fs.ensureDirSync(resizedDir);
 
 // 配置 multer 用于文件上传
 const storage = multer.diskStorage({
@@ -222,7 +228,13 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
       // JPEG 参数
       jpegQuality: parseInt(req.body.jpegQuality) || 80,
       // WebP 参数
-      webpQuality: parseInt(req.body.webpQuality) || 80
+      webpQuality: parseInt(req.body.webpQuality) || 80,
+      // 分辨率调整参数
+      resizeMode: req.body.resizeMode || 'keep',
+      resizeWidth: parseInt(req.body.resizeWidth) || 1920,
+      resizeHeight: parseInt(req.body.resizeHeight) || 1080,
+      skipIfSmaller: req.body.skipIfSmaller === 'true',
+      fit: req.body.fit || 'cover'
     };
     
     // 获取需要转换为JPEG的文件列表
@@ -231,13 +243,39 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
       : req.body.convertToJpeg ? [req.body.convertToJpeg] : [];
     
     for (const file of req.files) {
-      const inputPath = file.path;
-      let outputPath = path.join(compressedDir, `compressed-${file.filename}`);
-      
-      // 检查是否需要转换为JPEG
+      let inputPath = file.path;
       const shouldConvertToJpeg = convertToJpegFiles.includes(file.originalname);
+      
+      // 保存原图信息
+      const originalStats = await fs.stat(inputPath);
+      const originalMetadata = await require('sharp')(inputPath).metadata();
+      
+      // 第一步：调整分辨率（如果需要）
+      let resizedPath = null;
+      let resizedInfo = null;
+      
+      if (options.resizeMode !== 'keep') {
+        resizedPath = path.join(resizedDir, `resized-${file.filename}`);
+        const resizeResult = await resizeImage(inputPath, resizedPath, file.mimetype, options);
+        
+        if (resizeResult.success) {
+          resizedInfo = {
+            filename: `resized-${file.filename}`,
+            size: resizeResult.resizedSize,
+            dimensions: `${resizeResult.width}x${resizeResult.height}`,
+            resizedUrl: `./resized/resized-${file.filename}`
+          };
+          // 使用调整后的图片作为压缩输入
+          inputPath = resizedPath;
+        } else {
+          // 如果调整分辨率失败，使用原图
+          console.log(`⚠️ 调整分辨率失败，使用原图: ${resizeResult.error}`);
+        }
+      }
+      
+      // 第二步：压缩
+      let outputPath = path.join(compressedDir, `compressed-${file.filename}`);
       if (shouldConvertToJpeg && file.mimetype === 'image/png') {
-        // 修改输出文件扩展名为.jpg
         outputPath = outputPath.replace(/\.png$/i, '.jpg');
       }
       
@@ -249,13 +287,14 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
           ? `compressed-${file.filename.replace(/\.png$/i, '.jpg')}`
           : `compressed-${file.filename}`;
         
-        results.push({
+        const resultData = {
           success: true,
           convertedToJpeg: shouldConvertToJpeg, // 添加转换标识
+          resizeMode: options.resizeMode, // 添加分辨率调整模式
           original: {
             filename: Buffer.from(file.originalname, 'latin1').toString('utf8'),
-            size: result.originalSize,
-            dimensions: result.analysis ? `${result.analysis.width}x${result.analysis.height}` : '未知尺寸',
+            size: originalStats.size, // 使用原图大小
+            dimensions: `${originalMetadata.width}x${originalMetadata.height}`, // 使用原图尺寸
             format: result.analysis ? result.analysis.format : 'UNKNOWN'
           },
           compressed: {
@@ -265,7 +304,14 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
           },
           downloadUrl: `./compressed/${compressedFilename}`,
           originalUrl: `./uploads/${file.filename}`
-        });
+        };
+        
+        // 如果有调整分辨率，添加resized信息
+        if (resizedInfo) {
+          resultData.resized = resizedInfo;
+        }
+        
+        results.push(resultData);
       } else {
         results.push({
           success: false,
@@ -402,6 +448,27 @@ async function cleanupExpiredFiles(returnDetails = false) {
       }
     }
     
+    // 清理调整分辨率文件
+    const resizedFiles = await fs.readdir(resizedDir);
+    for (const file of resizedFiles) {
+      // 跳过 .gitkeep 文件
+      if (file === '.gitkeep') {
+        continue;
+      }
+      
+      const filePath = path.join(resizedDir, file);
+      const stats = await fs.stat(filePath);
+      const age = now - stats.mtime.getTime();
+      if (age > thirtyMinutes) {
+        console.log(`  🗑️  删除过期调整分辨率文件: ${file} (年龄: ${Math.round(age / (1000 * 60))} 分钟)`);
+        await fs.remove(filePath);
+        deletedCount++;
+        if (returnDetails) {
+          deletedFiles.push({ type: 'resized', filename: file, age: Math.round(age / (1000 * 60)) });
+        }
+      }
+    }
+    
     if (deletedCount > 0) {
       console.log(`✅ 清理完成，共删除 ${deletedCount} 个过期文件`);
     } else {
@@ -448,6 +515,106 @@ app.post('/api/cleanup', async (req, res) => {
     });
   }
 });
+
+// 调整图片分辨率函数
+async function resizeImage(inputPath, outputPath, mimetype, options) {
+  try {
+    const sharp = require('sharp');
+    
+    // 获取原图信息
+    const metadata = await sharp(inputPath).metadata();
+    const originalWidth = metadata.width;
+    const originalHeight = metadata.height;
+    
+    console.log(`📐 开始调整分辨率: ${originalWidth}x${originalHeight} -> ${options.resizeMode}`);
+    
+    let targetWidth, targetHeight;
+    
+    // 根据调整模式计算目标尺寸
+    switch (options.resizeMode) {
+      case 'custom':
+        targetWidth = options.resizeWidth;
+        targetHeight = options.resizeHeight;
+        break;
+        
+      case 'maxWidth':
+        if (options.skipIfSmaller && originalWidth <= options.resizeWidth) {
+          console.log(`⏭️ 原图宽度 ${originalWidth} 小于等于目标宽度 ${options.resizeWidth}，跳过调整`);
+          return { success: false, error: '原图尺寸已符合要求' };
+        }
+        targetWidth = options.resizeWidth;
+        targetHeight = Math.round((originalHeight * options.resizeWidth) / originalWidth);
+        break;
+        
+      case 'maxHeight':
+        if (options.skipIfSmaller && originalHeight <= options.resizeHeight) {
+          console.log(`⏭️ 原图高度 ${originalHeight} 小于等于目标高度 ${options.resizeHeight}，跳过调整`);
+          return { success: false, error: '原图尺寸已符合要求' };
+        }
+        targetHeight = options.resizeHeight;
+        targetWidth = Math.round((originalWidth * options.resizeHeight) / originalHeight);
+        break;
+        
+      default:
+        return { success: false, error: '未知的调整模式' };
+    }
+    
+    // 根据调整模式选择fit策略
+    let fitStrategy = 'fill'; // 默认策略
+    
+    if (options.resizeMode === 'custom') {
+      // 自定义尺寸使用用户选择的fit策略
+      fitStrategy = options.fit || 'cover';
+    } else if (options.resizeMode === 'maxWidth' || options.resizeMode === 'maxHeight') {
+      // 按比例缩放使用contain策略，保持比例不变形
+      fitStrategy = 'contain';
+    }
+    
+    // 使用Sharp调整分辨率，保持原质量和格式
+    const resizeOptions = {
+      fit: fitStrategy,
+      withoutEnlargement: false // 允许放大
+    };
+    
+    // 如果是contain模式，根据目标格式选择填充方式
+    if (fitStrategy === 'contain') {
+      // 判断目标格式
+      const isJpeg = outputPath.toLowerCase().endsWith('.jpg') || outputPath.toLowerCase().endsWith('.jpeg');
+      
+      if (isJpeg) {
+        // JPEG格式使用白色填充（JPEG不支持透明度）
+        resizeOptions.background = { r: 255, g: 255, b: 255, alpha: 1 }; // 白色背景
+      } else {
+        // PNG/WebP格式使用透明填充
+        resizeOptions.background = { r: 0, g: 0, b: 0, alpha: 0 }; // 透明背景
+      }
+    }
+    
+    await sharp(inputPath)
+      .resize(targetWidth, targetHeight, resizeOptions)
+      .toFile(outputPath);
+    
+    // 获取调整后文件的大小
+    const stats = await fs.stat(outputPath);
+    const resizedSize = stats.size;
+    
+    console.log(`✅ 分辨率调整完成: ${originalWidth}x${originalHeight} -> ${targetWidth}x${targetHeight}`);
+    
+    return {
+      success: true,
+      width: targetWidth,
+      height: targetHeight,
+      resizedSize: resizedSize
+    };
+    
+  } catch (error) {
+    console.error('❌ 调整分辨率失败:', error);
+    return {
+      success: false,
+      error: `分辨率调整失败: ${error.message}`
+    };
+  }
+}
 
 // 前端路由（SPA 支持）
 app.use((req, res) => {

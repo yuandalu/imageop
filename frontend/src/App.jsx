@@ -24,7 +24,13 @@ function App() {
     // JPEG 压缩参数
     jpegQuality: 60,  // JPEG 质量 (60-95)
     // WebP 压缩参数
-    webpQuality: 60   // WebP 质量 (60-95)
+    webpQuality: 60,   // WebP 质量 (60-95)
+    // 分辨率调整参数
+    resizeMode: 'keep',  // 调整模式：keep, custom, maxWidth, maxHeight
+    resizeWidth: 1920,   // 目标宽度
+    resizeHeight: 1080,  // 目标高度
+    skipIfSmaller: false, // 小于当前尺寸不处理
+    fit: 'cover'         // 缩放规则：cover, contain, fill
   });
   const [compressionCache, setCompressionCache] = useState(new Map()); // 压缩结果缓存
   const [convertToJpeg, setConvertToJpeg] = useState(new Map()); // PNG转JPEG选项
@@ -70,7 +76,13 @@ function App() {
       pngquantMax: settings.pngquantMax,
       pngquantSpeed: settings.pngquantSpeed,
       jpegQuality: settings.jpegQuality,
-      webpQuality: settings.webpQuality
+      webpQuality: settings.webpQuality,
+      // 分辨率调整参数
+      resizeMode: settings.resizeMode,
+      resizeWidth: settings.resizeWidth,
+      resizeHeight: settings.resizeHeight,
+      skipIfSmaller: settings.skipIfSmaller,
+      fit: settings.fit
     };
     
     // 根据文件格式返回相关参数
@@ -80,13 +92,31 @@ function App() {
         pngquantMin: baseSettings.pngquantMin,
         pngquantMax: baseSettings.pngquantMax,
         pngquantSpeed: baseSettings.pngquantSpeed,
-        convertToJpeg: convertToJpeg.get(file.name) || false // 添加转换选项
+        convertToJpeg: convertToJpeg.get(file.name) || false, // 添加转换选项
+        // 分辨率调整参数
+        resizeMode: baseSettings.resizeMode,
+        resizeWidth: baseSettings.resizeWidth,
+        resizeHeight: baseSettings.resizeHeight,
+        skipIfSmaller: baseSettings.skipIfSmaller,
+        fit: baseSettings.fit
       },
       jpeg: {
-        jpegQuality: baseSettings.jpegQuality
+        jpegQuality: baseSettings.jpegQuality,
+        // 分辨率调整参数
+        resizeMode: baseSettings.resizeMode,
+        resizeWidth: baseSettings.resizeWidth,
+        resizeHeight: baseSettings.resizeHeight,
+        skipIfSmaller: baseSettings.skipIfSmaller,
+        fit: baseSettings.fit
       },
       webp: {
-        webpQuality: baseSettings.webpQuality
+        webpQuality: baseSettings.webpQuality,
+        // 分辨率调整参数
+        resizeMode: baseSettings.resizeMode,
+        resizeWidth: baseSettings.resizeWidth,
+        resizeHeight: baseSettings.resizeHeight,
+        skipIfSmaller: baseSettings.skipIfSmaller,
+        fit: baseSettings.fit
       }
     };
     
@@ -193,6 +223,12 @@ function App() {
         formData.append('jpegQuality', settings.jpegQuality);
         // WebP 参数
         formData.append('webpQuality', settings.webpQuality);
+        // 分辨率调整参数
+        formData.append('resizeMode', settings.resizeMode);
+        formData.append('resizeWidth', settings.resizeWidth);
+        formData.append('resizeHeight', settings.resizeHeight);
+        formData.append('skipIfSmaller', settings.skipIfSmaller);
+        formData.append('fit', settings.fit);
 
         const response = await axios.post('./api/compress/batch', formData, {
           headers: {
@@ -549,7 +585,13 @@ function App() {
       <div className="preview-modal-overlay" onClick={onClose}>
         <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
           <div className="preview-header">
-            <h3>预览 左右滑动可查看压缩前后效果对比图</h3>
+            <h3>
+              预览对比 - {
+                result.resizeMode && result.resizeMode !== 'keep' && result.resized 
+                  ? '调整分辨率后 vs 压缩后' 
+                  : '原图 vs 压缩后'
+              }
+            </h3>
             <div className="preview-actions">
               {result.compressed && result.compressed.compressionRatio > 0 ? (
                 <button className="preview-download" onClick={() => downloadSingle(result)}>
@@ -566,8 +608,8 @@ function App() {
             <div className="comparison-container" ref={comparisonRef} onMouseMove={handleMouseMove}>
               <div className="comparison-image-container">
                 <img 
-                  src={result.originalUrl} 
-                  alt="压缩前" 
+                  src={result.resizeMode && result.resizeMode !== 'keep' && result.resized ? result.resized.resizedUrl : result.originalUrl} 
+                  alt={result.resizeMode && result.resizeMode !== 'keep' && result.resized ? "调整分辨率后" : "压缩前"} 
                   className="comparison-image comparison-original"
                   style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
                 />
@@ -589,7 +631,11 @@ function App() {
               
               <div className="comparison-labels">
                 <div className="label-left">
-                  压缩前 {formatFileSize(result.original.size)}
+                  {result.resizeMode && result.resizeMode !== 'keep' && result.resized ? '调整分辨率后' : '压缩前'} {
+                    result.resizeMode && result.resizeMode !== 'keep' && result.resized 
+                      ? formatFileSize(result.resized.size) 
+                      : formatFileSize(result.original.size)
+                  }
                 </div>
                 <div className="label-right">
                   压缩后 {formatFileSize(result.compressed.size)}
@@ -905,6 +951,119 @@ function App() {
                     />
                     <span className="speed-value">{settings.webpQuality}</span>
                   </div>
+                </div>
+              </div>
+              
+              {/* 分辨率调整配置 */}
+              <div className="resize-config-container">
+                <div className="resize-config-label">分辨率调整配置</div>
+                <div className="resize-config-items">
+                  <div className="setting-item">
+                    <label className="setting-label-small">调整模式</label>
+                    <select
+                      value={settings.resizeMode}
+                      onChange={(e) => setSettings({...settings, resizeMode: e.target.value})}
+                      className="setting-select-small"
+                    >
+                      <option value="keep">保持原尺寸</option>
+                      <option value="custom">自定义尺寸</option>
+                      <option value="maxWidth">按宽度缩放</option>
+                      <option value="maxHeight">按高度缩放</option>
+                    </select>
+                  </div>
+                  
+                  {settings.resizeMode === 'custom' && (
+                    <div className="custom-size-options">
+                      <div className="setting-item">
+                        <label className="setting-label-small">目标宽度</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={settings.resizeWidth}
+                          onChange={(e) => setSettings({...settings, resizeWidth: parseInt(e.target.value)})}
+                          className="setting-input-small"
+                          placeholder="目标宽度"
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <label className="setting-label-small">目标高度</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={settings.resizeHeight}
+                          onChange={(e) => setSettings({...settings, resizeHeight: parseInt(e.target.value)})}
+                          className="setting-input-small"
+                          placeholder="目标高度"
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <label className="setting-label-small">缩放规则</label>
+                        <select
+                          value={settings.fit}
+                          onChange={(e) => setSettings({...settings, fit: e.target.value})}
+                          className="setting-select-small"
+                        >
+                          <option value="cover">裁剪填充</option>
+                          <option value="contain">完整显示</option>
+                          <option value="fill">强制拉伸</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {settings.resizeMode === 'maxWidth' && (
+                    <div className="proportional-size-options">
+                      <div className="setting-item">
+                        <label className="setting-label-small">目标宽度</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={settings.resizeWidth}
+                          onChange={(e) => setSettings({...settings, resizeWidth: parseInt(e.target.value)})}
+                          className="setting-input-small"
+                          placeholder="目标宽度"
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <div className="setting-checkbox-small">
+                          <input
+                            type="checkbox"
+                            id="skipIfSmaller"
+                            checked={settings.skipIfSmaller}
+                            onChange={(e) => setSettings({...settings, skipIfSmaller: e.target.checked})}
+                          />
+                          <label htmlFor="skipIfSmaller">小于当前尺寸不处理</label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {settings.resizeMode === 'maxHeight' && (
+                    <div className="proportional-size-options">
+                      <div className="setting-item">
+                        <label className="setting-label-small">目标高度</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={settings.resizeHeight}
+                          onChange={(e) => setSettings({...settings, resizeHeight: parseInt(e.target.value)})}
+                          className="setting-input-small"
+                          placeholder="目标高度"
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <div className="setting-checkbox-small">
+                          <input
+                            type="checkbox"
+                            id="skipIfSmaller"
+                            checked={settings.skipIfSmaller}
+                            onChange={(e) => setSettings({...settings, skipIfSmaller: e.target.checked})}
+                          />
+                          <label htmlFor="skipIfSmaller">小于当前尺寸不处理</label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

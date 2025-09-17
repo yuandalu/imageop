@@ -61,7 +61,7 @@ npm install
 # 创建必要的目录
 echo "📁 创建必要目录..."
 cd ..
-mkdir -p data/uploads data/compressed
+mkdir -p data/uploads data/compressed data/resized
 
 echo "🌟 启动开发服务器..."
 echo "前端开发服务器: http://localhost:5173 (带热更新)"

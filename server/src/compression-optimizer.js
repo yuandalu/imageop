@@ -217,22 +217,10 @@ class CompressionOptimizer {
             progressive: config.progressive,
             mozjpeg: config.mozjpeg,
             optimizeScans: config.optimizeScans
-          });
+          }).flatten({ background: { r: 255, g: 255, b: 255 } }); // 白色背景
           break;
           
         case 'png':
-          // 如果强制转换为JPEG，跳过PNG处理
-          if (userOptions.forceFormat === 'jpeg') {
-            console.log('🔄 PNG转JPEG，使用Sharp进行转换');
-            pipeline = pipeline.jpeg({
-              quality: config.quality,
-              progressive: config.progressive,
-              mozjpeg: config.mozjpeg,
-              optimizeScans: config.optimizeScans
-            });
-            break;
-          }
-          
           // PNG 必须使用 pngquant 命令行工具
           console.log('🚀 使用 pngquant 命令行工具进行 PNG 压缩');
           

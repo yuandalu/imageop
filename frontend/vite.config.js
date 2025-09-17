@@ -17,6 +17,10 @@ export default defineConfig({
       '/uploads': {
         target: 'http://localhost:3080',
         changeOrigin: true
+      },
+      '/resized': {
+        target: 'http://localhost:3080',
+        changeOrigin: true
       }
     }
   },

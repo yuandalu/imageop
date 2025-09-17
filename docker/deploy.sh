@@ -21,7 +21,7 @@ fi
 
 # 创建必要的目录
 echo "📁 创建必要目录..."
-mkdir -p ../data/uploads ../data/compressed
+mkdir -p ../data/uploads ../data/compressed ../data/resized
 
 # 检查根目录的业务环境变量文件
 if [ ! -f "../.env" ]; then

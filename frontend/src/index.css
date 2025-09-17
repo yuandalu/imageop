@@ -1471,8 +1471,8 @@ body {
 /* PNG转JPEG选项样式 - 位于file-item右上角 */
 .convert-option {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 5px;
+  right: 5px;
   z-index: 10;
 }
 
@@ -1520,6 +1520,122 @@ body {
   font-size: 12px;
   font-weight: bold;
   z-index: 5;
+}
+
+/* 分辨率调整配置样式 */
+.resize-config-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.resize-config-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resize-config-label::before {
+  content: "📐";
+  font-size: 14px;
+}
+
+.resize-config-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 自定义尺寸选项的响应式布局 */
+.resize-config-items .custom-size-options {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.resize-config-items .custom-size-options .setting-item {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* 按比例缩放选项的响应式布局 */
+.resize-config-items .proportional-size-options {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.resize-config-items .proportional-size-options .setting-item {
+  flex: 1;
+  min-width: 120px;
+}
+
+.resize-config-items .proportional-size-options .setting-checkbox-small {
+  flex: 0 0 auto;
+  min-width: auto;
+  display: flex;
+  align-items: center;
+  height: 28px; /* 与输入框高度一致 */
+}
+
+/* 手机端换行 */
+@media (max-width: 768px) {
+  .resize-config-items .custom-size-options,
+  .resize-config-items .proportional-size-options {
+    flex-direction: column;
+  }
+  
+  .resize-config-items .custom-size-options .setting-item,
+  .resize-config-items .proportional-size-options .setting-item {
+    min-width: auto;
+  }
+  
+  .resize-config-items .proportional-size-options .setting-checkbox-small {
+    margin-top: 0;
+  }
+}
+
+.setting-select-small {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+  color: #374151;
+}
+
+.setting-select-small:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+
+/* 分辨率调整输入框样式 - 更宽的尺寸 */
+.resize-config-items .setting-input-small {
+  width: 80px;
+  height: 28px;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.resize-config-items .setting-input-small:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
 }
 
 /* 动画 */

@@ -70,7 +70,7 @@ RUN mkdir -p ../bin && \
     cd /app/server
 
 # 创建必要的目录
-RUN mkdir -p ../data/uploads ../data/compressed
+RUN mkdir -p ../data/uploads ../data/compressed ../data/resized
 
 # 设置环境变量
 ENV NODE_ENV=production

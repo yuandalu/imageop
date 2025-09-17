@@ -8,6 +8,7 @@ services:
     volumes:
       - ../data/uploads:/app/data/uploads
       - ../data/compressed:/app/data/compressed
+      - ../data/resized:/app/data/resized
       - ../.env:/app/.env  # 挂载业务配置文件
     restart: always
     healthcheck:
