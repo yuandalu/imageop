@@ -27,8 +27,8 @@ function App() {
     webpQuality: 60,   // WebP 质量 (60-95)
     // 分辨率调整参数
     resizeMode: 'keep',  // 调整模式：keep, custom, maxWidth, maxHeight
-    resizeWidth: 1920,   // 目标宽度
-    resizeHeight: 1080,  // 目标高度
+    resizeWidth: 300,    // 目标宽度
+    resizeHeight: 200,   // 目标高度
     skipIfSmaller: false, // 小于当前尺寸不处理
     fit: 'cover'         // 缩放规则：cover, contain, fill
   });

@@ -231,8 +231,8 @@ app.post('/api/compress/batch', upload.array('images', 100), async (req, res) =>
       webpQuality: parseInt(req.body.webpQuality) || 80,
       // 分辨率调整参数
       resizeMode: req.body.resizeMode || 'keep',
-      resizeWidth: parseInt(req.body.resizeWidth) || 1920,
-      resizeHeight: parseInt(req.body.resizeHeight) || 1080,
+      resizeWidth: parseInt(req.body.resizeWidth) || 300,
+      resizeHeight: parseInt(req.body.resizeHeight) || 200,
       skipIfSmaller: req.body.skipIfSmaller === 'true',
       fit: req.body.fit || 'cover'
     };
