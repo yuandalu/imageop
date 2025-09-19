@@ -6,6 +6,8 @@ import { zipSync } from 'fflate';
 import FileItem from './FileItem';
 import PreviewModal from './PreviewModal';
 import CompressionSettingsCompact from './CompressionSettingsCompact';
+import MessageToast from './MessageToast';
+import ErrorModal from './ErrorModal';
 import { 
   formatFileSize, 
   getFileType, 
@@ -23,24 +25,19 @@ function App() {
   const [files, setFiles] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [showUpload, setShowUpload] = useState(true); // 控制显示上传界面还是文件列表
   const [previewModal, setPreviewModal] = useState(null); // 预览模态框数据
-  const [errorModal, setErrorModal] = useState(null); // 错误模态框数据
+  
+  // 使用消息管理 Hook
+  // 消息状态管理
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [errorModal, setErrorModal] = useState(null);
+
   const [settings, setSettings] = useState(DEFAULT_COMPRESSION_SETTINGS);
   const [compressionCache, setCompressionCache] = useState(new Map()); // 压缩结果缓存
   const [convertToJpeg, setConvertToJpeg] = useState(new Map()); // PNG转JPEG选项
 
-  // 自动隐藏success提示
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        setSuccess('');
-      }, 4000); // 4秒后自动消失
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
 
 
 
@@ -330,7 +327,6 @@ function App() {
         if (totalFileCount > 100) {
           // 完全拒绝添加，显示错误提示
           setError(`最多只能添加 ${100 - currentFileCount} 个文件（当前已有 ${currentFileCount} 个文件，总共不能超过100个）`);
-          setTimeout(() => setError(''), 3000);
           return;
         }
         
@@ -350,7 +346,6 @@ function App() {
       if (uniqueNewFiles.length < newFiles.length) {
         const duplicateCount = newFiles.length - uniqueNewFiles.length;
         setError(`已忽略 ${duplicateCount} 个重复文件`);
-        setTimeout(() => setError(''), 3000); // 3秒后清除提示
       }
       
       return [...prevFiles, ...uniqueNewFiles];
@@ -410,61 +405,6 @@ function App() {
   }, []);
 
 
-  // 错误模态框组件
-  function ErrorModal({ errorModal, onClose }) {
-    console.log('ErrorModal渲染', errorModal);
-    if (!errorModal) return null;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    const copyError = async () => {
-      try {
-        await navigator.clipboard.writeText(errorModal.error);
-        // 可以添加一个简单的提示
-      } catch (err) {
-        console.error('复制失败:', err);
-      }
-    };
-
-    useEffect(() => {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-      };
-    }, []);
-
-    return (
-      <div className="error-modal-overlay" onClick={onClose}>
-        <div className="error-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="error-modal-header">
-            <h3>压缩失败详情</h3>
-            <button className="error-modal-close" onClick={onClose}>×</button>
-          </div>
-          <div className="error-modal-content">
-            <div className="error-filename">{errorModal.filename}</div>
-            <div className="error-message">
-              <pre>{errorModal.error}</pre>
-            </div>
-          </div>
-          <div className="error-modal-actions">
-            <button 
-              className="btn-copy" 
-              onClick={copyError}
-            >
-              复制错误信息
-            </button>
-            <button className="btn-close" onClick={onClose}>
-              关闭
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container">
@@ -571,26 +511,12 @@ function App() {
         </div>
       )}
 
-      {error && (
-        <div className="error">
-          <AlertCircle style={{ width: '20px', height: '20px', display: 'inline', marginRight: '10px' }} />
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="success-toast">
-          <CheckCircle style={{ width: '20px', height: '20px', display: 'inline', marginRight: '10px' }} />
-          <span className="success-message">{success}</span>
-          <button 
-            className="success-close" 
-            onClick={() => setSuccess('')}
-            aria-label="关闭提示"
-          >
-            ×
-          </button>
-        </div>
-      )}
+      <MessageToast 
+        success={success}
+        error={error}
+        onCloseSuccess={() => setSuccess('')}
+        onCloseError={() => setError('')}
+      />
 
       {previewModal && (
         <PreviewModal 
