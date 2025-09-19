@@ -114,5 +114,173 @@ export const getCompressionStatus = (file, result) => {
   }
 };
 
+/**
+ * 验证文件是否可读
+ * @param {Array} files - 文件数组
+ * @returns {Promise<Array>} 验证结果数组
+ */
+export const validateFiles = async (files) => {
+  const fileValidationPromises = files.map(async (file, index) => {
+    try {
+      await tryReadFileHead(file);
+      return { file, index, valid: true };
+    } catch (error) {
+      return { file, index, valid: false };
+    }
+  });
+  return await Promise.all(fileValidationPromises);
+};
+
+/**
+ * 分析哪些文件需要重新压缩
+ * @param {Array} fileValidationResults - 文件验证结果
+ * @param {Object} settings - 压缩设置
+ * @param {Map} convertToJpeg - PNG转JPEG选项
+ * @param {Map} compressionCache - 压缩缓存
+ * @param {Function} removeFile - 移除文件函数
+ * @returns {Object} 包含需要压缩的文件和缓存结果
+ */
+export const analyzeCompressionNeeds = (fileValidationResults, settings, convertToJpeg, compressionCache, removeFile) => {
+  const filesToCompress = [];
+  const cachedResults = [];
+  
+  fileValidationResults.forEach(({ file, index, valid }) => {
+    if (!valid) {
+      // 处理无效文件
+      cachedResults[index] = {
+        success: false,
+        filename: file.name,
+        error: '文件不存在或已损坏'
+      };
+      removeFile(index, true);
+      return;
+    }
+
+    const fileId = getFileId(file);
+    const needsCompression = hasCompressionSettingsChanged(file, settings, convertToJpeg, compressionCache);
+    
+    if (needsCompression) {
+      console.log(`文件 ${file.name} 需要重新压缩`);
+      filesToCompress.push({ file, index });
+    } else {
+      console.log(`文件 ${file.name} 使用缓存结果`);
+      const cached = compressionCache.get(fileId);
+      if (cached) {
+        cachedResults[index] = {
+          ...cached.result,
+          _isCached: true
+        };
+      }
+    }
+  });
+  
+  return { filesToCompress, cachedResults };
+};
+
+/**
+ * 构建压缩请求的FormData
+ * @param {Array} filesToCompress - 需要压缩的文件
+ * @param {Object} settings - 压缩设置
+ * @param {Map} convertToJpeg - PNG转JPEG选项
+ * @returns {FormData} 请求数据
+ */
+export const buildFormData = (filesToCompress, settings, convertToJpeg) => {
+  const formData = new FormData();
+  
+  filesToCompress.forEach(({ file }) => {
+    formData.append('images', file);
+    if (convertToJpeg.get(file.name)) {
+      formData.append('convertToJpeg', file.name);
+    }
+  });
+  
+  // 添加压缩参数
+  formData.append('lossy', settings.lossy);
+  formData.append('pngquantMin', settings.pngquantMin);
+  formData.append('pngquantMax', settings.pngquantMax);
+  formData.append('pngquantSpeed', settings.pngquantSpeed);
+  formData.append('jpegQuality', settings.jpegQuality);
+  formData.append('webpQuality', settings.webpQuality);
+  formData.append('resizeMode', settings.resizeMode);
+  formData.append('resizeWidth', settings.resizeWidth);
+  formData.append('resizeHeight', settings.resizeHeight);
+  formData.append('skipIfSmaller', settings.skipIfSmaller);
+  formData.append('fit', settings.fit);
+  
+  return formData;
+};
+
+/**
+ * 处理压缩响应并更新缓存
+ * @param {Object} response - 压缩响应
+ * @param {Array} filesToCompress - 需要压缩的文件
+ * @param {Array} files - 所有文件
+ * @param {Object} settings - 压缩设置
+ * @param {Map} convertToJpeg - PNG转JPEG选项
+ * @param {Function} setCompressionCache - 设置缓存函数
+ * @returns {Array} 压缩结果数组
+ */
+export const processCompressionResponse = (response, filesToCompress, files, settings, convertToJpeg, setCompressionCache) => {
+  const newResults = [];
+  
+  response.data.results.forEach((result, resultIndex) => {
+    const { index: fileIndex } = filesToCompress[resultIndex];
+    newResults[fileIndex] = result;
+    
+    // 更新缓存
+    const file = files[fileIndex];
+    const fileId = getFileId(file);
+    const currentSettings = getFileCompressionSettings(file, settings, convertToJpeg);
+    
+    setCompressionCache(prev => {
+      const newCache = new Map(prev);
+      newCache.set(fileId, {
+        result: result,
+        settings: currentSettings
+      });
+      return newCache;
+    });
+  });
+  
+  return newResults;
+};
+
+/**
+ * 生成成功消息
+ * @param {Array} results - 压缩结果数组
+ * @returns {string} 成功消息
+ */
+export const generateSuccessMessage = (results) => {
+  const compressedCount = results.filter(r => r && r.success && !r._isCached).length;
+  const cachedCount = results.filter(r => r && r._isCached).length;
+  const errorCount = results.filter(r => r && !r.success).length;
+  
+  if (errorCount > 0) {
+    return `处理完成：压缩 ${compressedCount} 张，缓存 ${cachedCount} 张，错误 ${errorCount} 张`;
+  } else if (cachedCount > 0 && compressedCount > 0) {
+    return `成功压缩 ${compressedCount} 张图片（${cachedCount} 张使用缓存）`;
+  } else if (cachedCount > 0) {
+    return `所有 ${cachedCount} 张图片都使用缓存结果`;
+  } else {
+    return `成功压缩 ${compressedCount} 张图片`;
+  }
+};
+
+/**
+ * 执行压缩请求
+ * @param {FormData} formData - 请求数据
+ * @returns {Promise<Object>} 压缩响应
+ */
+export const executeCompressionRequest = async (formData) => {
+  const response = await axios.post(API_ENDPOINTS.COMPRESS_BATCH, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response;
+};
+
 // 导入需要的工具函数
-import { getFileType, getFileId } from './fileUtils.js';
+import { getFileType, getFileId, tryReadFileHead } from './fileUtils.js';
+import { API_ENDPOINTS } from './constants.js';
+import axios from 'axios';
