@@ -534,6 +534,36 @@ body {
   gap: 16px;
 }
 
+/* 文件删除按钮 */
+.file-remove-btn {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: normal;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: color 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.file-remove-btn:hover {
+  color: #ef4444;
+}
+
+.file-remove-btn:active {
+  color: #dc2626;
+}
+
 .file-preview {
   display: flex;
   flex-direction: column;
@@ -741,6 +771,56 @@ body {
   justify-content: center;
   padding: 20px;
   background: #f3f4f6;
+  position: relative;
+}
+
+/* 画布控制区域 */
+.canvas-controls {
+  position: absolute;
+  right: 10px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 垂直拖动条 */
+.vertical-slider {
+  position: relative;
+  height: 100%;
+  width: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  cursor: ns-resize;
+  transition: background-color 0.2s ease;
+}
+
+.vertical-slider:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* 垂直拖动手柄 */
+.vertical-handle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%) translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: #007bff;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: ns-resize;
+  transition: all 0.2s ease;
+}
+
+.vertical-handle:hover {
+  background: #0056b3;
+  transform: translateX(-50%) translateY(-50%);
 }
 
 .comparison-container {

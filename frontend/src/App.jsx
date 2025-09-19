@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, Download, Eye, Settings, CheckCircle, AlertCircle, Archive } from 'lucide-react';
 import axios from 'axios';
 import { zipSync } from 'fflate';
+import FileItem from './FileItem';
 import './index.css';
 
 function App() {
@@ -12,7 +13,6 @@ function App() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showUpload, setShowUpload] = useState(true); // 控制显示上传界面还是文件列表
-  const [isAddingMore, setIsAddingMore] = useState(false); // 是否正在添加更多图片
   const [previewModal, setPreviewModal] = useState(null); // 预览模态框数据
   const [errorModal, setErrorModal] = useState(null); // 错误模态框数据
   const [settings, setSettings] = useState({
@@ -68,6 +68,9 @@ function App() {
   };
 
   // 获取文件对应的压缩参数
+  // 核心作用：为缓存策略提供精确的参数比较基础
+  // 根据文件格式返回该格式相关的参数，实现"按需分配"策略
+  // 避免不同格式的参数变化相互干扰，确保缓存策略的精确性
   const getFileCompressionSettings = (file) => {
     const format = getFileType(file, 'format');
     const baseSettings = {
@@ -86,6 +89,7 @@ function App() {
     };
     
     // 根据文件格式返回相关参数
+    // 每个格式只包含自己相关的参数，避免无关参数影响缓存判断
     const formatSettings = {
       png: {
         lossy: baseSettings.lossy,
@@ -93,6 +97,9 @@ function App() {
         pngquantMax: baseSettings.pngquantMax,
         pngquantSpeed: baseSettings.pngquantSpeed,
         convertToJpeg: convertToJpeg.get(file.name) || false, // 添加转换选项
+        // 如果转换为JPEG，也要包含JPEG质量参数
+        // 这样当用户调整JPEG质量时，PNG转JPEG的缓存会被正确检测为需要更新
+        jpegQuality: convertToJpeg.get(file.name) ? baseSettings.jpegQuality : undefined,
         // 分辨率调整参数
         resizeMode: baseSettings.resizeMode,
         resizeWidth: baseSettings.resizeWidth,
@@ -138,19 +145,13 @@ function App() {
   };
 
   const onDrop = useCallback((acceptedFiles) => {
-    if (isAddingMore) {
-      // 添加更多图片：追加到现有列表
-      setFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
-    } else {
-      // 重新上传：替换整个列表
-      setFiles(acceptedFiles);
-      setResults([]); // 清空之前的结果
-    }
+    // 重新上传：替换整个列表
+    setFiles(acceptedFiles);
+    setResults([]); // 清空之前的结果
     setError('');
     setSuccess('');
     setShowUpload(false); // 上传后立即切换到文件列表视图
-    setIsAddingMore(false); // 重置状态
-  }, [isAddingMore]);
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -177,11 +178,40 @@ function App() {
     try {
       console.log('开始智能压缩，文件数量:', files.length);
       
+
+      // 先校验所有文件是否可读
+      const fileValidationPromises = files.map(async (file, index) => {
+        try {
+          await tryReadFileHead(file);
+          return { file, index, valid: true };
+        } catch (error) {
+          return { file, index, valid: false };
+        }
+      });
+
+      // 等待所有文件校验完成
+      const fileValidationResults = await Promise.all(fileValidationPromises);
+
       // 分析哪些文件需要重新压缩
       const filesToCompress = [];
       const cachedResults = [];
       
-      files.forEach((file, index) => {
+      fileValidationResults.forEach(({ file, index, valid }) => {
+        // 如果文件无效，创建错误结果
+        if (!valid) {
+          // 1. 创建错误结果
+          cachedResults[index] = {
+            success: false,
+            filename: file.name,
+            error: '文件不存在或已损坏'
+          };
+          
+          // 2. 调用 removeFile，但保持文件列表
+          removeFile(index, true); // true 表示保持文件列表
+          
+          return;
+        }
+
         const fileId = getFileId(file);
         const needsCompression = hasCompressionSettingsChanged(file);
         
@@ -261,10 +291,15 @@ function App() {
 
       setResults(newResults);
       
-      const compressedCount = newResults.filter(r => r && r.success).length;
-      const cachedCount = filesToCompress.length === 0 ? files.length : files.length - filesToCompress.length;
+      // 基于实际结果统计
+      const compressedCount = newResults.filter(r => r && r.success && !r._isCached).length;
+      const cachedCount = newResults.filter(r => r && r._isCached).length;
+      const errorCount = newResults.filter(r => r && !r.success).length;
       
-      if (cachedCount > 0 && filesToCompress.length > 0) {
+      // 更准确的成功消息
+      if (errorCount > 0) {
+        setSuccess(`处理完成：压缩 ${compressedCount} 张，缓存 ${cachedCount} 张，错误 ${errorCount} 张`);
+      } else if (cachedCount > 0 && compressedCount > 0) {
         setSuccess(`成功压缩 ${compressedCount} 张图片（${cachedCount} 张使用缓存）`);
       } else if (cachedCount > 0) {
         setSuccess(`所有 ${cachedCount} 张图片都使用缓存结果`);
@@ -359,7 +394,6 @@ function App() {
   };
 
   const addMoreImages = () => {
-    setIsAddingMore(true); // 设置为添加模式
     // 直接触发文件选择，不跳转到上传页面
     const input = document.createElement('input');
     input.type = 'file';
@@ -383,7 +417,6 @@ function App() {
         });
         setSuccess('');
       }
-      setIsAddingMore(false);
     };
     input.click();
   };
@@ -398,9 +431,47 @@ function App() {
     document.body.removeChild(link);
   };
 
-  const previewImage = (result) => {
-    window.open(result.downloadUrl, '_blank');
-  };
+  // 移除文件 - 优化版本
+  const removeFile = useCallback((index, keepFile = false) => {
+    const fileToRemove = files[index];
+    if (!fileToRemove) return;
+    
+    // 批量更新所有状态，减少重渲染次数
+    setFiles(prevFiles => keepFile ? prevFiles : prevFiles.filter((_, i) => i !== index));
+    setResults(prevResults => prevResults.filter((_, i) => i !== index));
+    setConvertToJpeg(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(fileToRemove.name);
+      return newMap;
+    });
+    
+    // 清除缓存
+    const fileId = getFileId(fileToRemove);
+    setCompressionCache(prev => {
+      const newCache = new Map(prev);
+      newCache.delete(fileId);
+      return newCache;
+    });
+  }, [files]);
+
+  // 处理转换选项变化
+  const handleConvertToJpeg = useCallback((filename, convert) => {
+    setConvertToJpeg(prev => {
+      const newMap = new Map(prev);
+      if (convert) {
+        newMap.set(filename, true);
+      } else {
+        newMap.delete(filename);
+      }
+      return newMap;
+    });
+  }, []);
+
+  // 处理错误模态框
+  const handleErrorModal = useCallback((errorData) => {
+    setErrorModal(errorData);
+  }, []);
+
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 B';
@@ -411,139 +482,16 @@ function App() {
   };
 
 
-  // 获取图片尺寸
-  const getImageDimensions = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          resolve(`${img.width}x${img.height}`);
-        };
-        img.onerror = () => {
-          resolve('未知尺寸');
-        };
-        img.src = e.target.result;
-      };
-      reader.onerror = () => {
-        resolve('未知尺寸');
-      };
-      reader.readAsDataURL(file);
-    });
-  };
 
-  // 计算压缩状态和百分比
-  const getCompressionStatus = (file, result) => {
-    if (!result || !result.success) {
-      return { status: 'waiting', percentage: 0, color: '#6b7280' };
-    }
-
-    const originalSize = file.size;
-    const compressedSize = result.compressed.size;
-    const percentage = Math.round(((originalSize - compressedSize) / originalSize) * 100);
-    
-    if (percentage > 0) {
-      // 压缩成功，文件变小
-      return { status: 'compressed', percentage, color: '#10b981' };
-    } else if (percentage === 0) {
-      // 无变化
-      return { status: 'no-change', percentage: 0, color: '#ef4444' };
-    } else {
-      // 文件变大
-      return { status: 'increased', percentage: Math.abs(percentage), color: '#ef4444' };
-    }
-  };
-
-  // 文件信息组件
-  function FileInfo({ file, result }) {
-    const [dimensions, setDimensions] = useState('加载中...');
-
-    useEffect(() => {
-      // 如果有压缩结果，使用服务器返回的尺寸
-      if (result?.original?.dimensions) {
-        setDimensions(result.original.dimensions);
-      } else {
-        // 否则从文件获取尺寸
-        getImageDimensions(file).then(setDimensions);
-      }
-    }, [file, result]);
-
-    // 检查是否使用缓存
-    const isCached = result?._isCached || false;
-
-    // 确保所有值都是字符串
-    const fileType = getFileType(file);
-    const fileSize = formatFileSize(file.size);
-    const compressedFormat = result?.original?.format?.toUpperCase() || 'PNG';
-    const compressedSize = result?.compressed?.size ? formatFileSize(result.compressed.size) : '';
-
-    // 检查是否进行了格式转换（只有在真正转换完成后才显示）
-    const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
-    const wasConverted = isPng && result?.success && result?.convertedToJpeg;
-    const displayFormat = wasConverted ? 'JPEG' : compressedFormat;
-
-    // 获取压缩状态
-    const compressionStatus = getCompressionStatus(file, result);
-
-    return (
-      <div className="file-info">
-        <div className="file-info-item">
-          <span className="file-info-label">尺寸</span>
-          <span className="file-info-value">{dimensions}</span>
-        </div>
-        <div className="file-info-item">
-          <span className="file-info-label">原图</span>
-          <span className="file-info-value">
-            {fileType} {fileSize}
-            {wasConverted && <span className="convert-arrow-icon">↓</span>}
-          </span>
-        </div>
-        {result && result.success ? (
-          <div className="file-info-item">
-            <span className="file-info-label">压缩后</span>
-            <span 
-              className="file-info-value"
-              style={{ color: compressionStatus.color }}
-            >
-              {displayFormat} {compressedSize}
-              {isCached && <span className="cache-indicator"> (缓存)</span>}
-            </span>
-          </div>
-        ) : result && result.success === false ? (
-          <div className="file-info-item">
-            <span className="file-info-label">压缩后</span>
-            <div className="error-display">
-              <span className="error-status">❌ 失败</span>
-              <button 
-                className="error-details-btn"
-                onClick={() => {
-                  console.log('点击查看详情按钮', { error: result.error, filename: file.name });
-                  setErrorModal({ 
-                    show: true, 
-                    error: result.error, 
-                    filename: file.name 
-                  });
-                }}
-              >
-                详情
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="file-info-item">
-            <span className="file-info-label">压缩后</span>
-            <span className="file-info-value">等待压缩...</span>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // 预览模态框组件
   function PreviewModal({ result, onClose }) {
     const [sliderPosition, setSliderPosition] = useState(50); // 滑块位置 (0-100)
     const [isDragging, setIsDragging] = useState(false);
+    const [canvasHeight, setCanvasHeight] = useState(50); // 画布高度百分比 (0-100)
+    const [isVerticalDragging, setIsVerticalDragging] = useState(false);
     const comparisonRef = useRef(null);
+    const previewRef = useRef(null);
 
     const handleMouseDown = (e) => {
       setIsDragging(true);
@@ -563,23 +511,61 @@ function App() {
       setIsDragging(false);
     };
 
+    // 垂直拖动处理
+    const handleVerticalMouseDown = (e) => {
+      setIsVerticalDragging(true);
+      e.preventDefault();
+    };
+
+    const handleVerticalMouseMove = (e) => {
+      if (!isVerticalDragging || !previewRef.current) return;
+      
+      const rect = previewRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const percentage = Math.max(0, Math.min(100, (y / rect.height) * 100));
+      setCanvasHeight(percentage);
+    };
+
+    const handleVerticalMouseUp = () => {
+      setIsVerticalDragging(false);
+    };
+
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         onClose();
       }
     };
 
+    // 滚轮控制画布高度（放大缩小）
+    const handleWheel = (e) => {
+      const delta = e.deltaY > 0 ? 1 : -1; // 滚轮向下增加1%，向上减少1%
+      setCanvasHeight(prev => {
+        // 使用平滑的步长变化：高度越小，步长越小
+        // 使用对数函数实现平滑过渡，最小步长为0.1，最大步长为1
+        const minStep = 0.1;
+        const maxStep = 1;
+        const smoothFactor = Math.log(prev / 5 + 1) / Math.log(20); // 5-100映射到0-1
+        const adjustedDelta = delta * (minStep + (maxStep - minStep) * smoothFactor);
+        
+        return Math.max(5, Math.min(100, prev + adjustedDelta));
+      });
+    };
+
     useEffect(() => {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleVerticalMouseMove);
+      document.addEventListener('mouseup', handleVerticalMouseUp);
       document.addEventListener('keydown', handleKeyDown);
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleVerticalMouseMove);
+        document.removeEventListener('mouseup', handleVerticalMouseUp);
         document.removeEventListener('keydown', handleKeyDown);
       };
-    }, [isDragging]);
+    }, [isDragging, isVerticalDragging]);
 
     return (
       <div className="preview-modal-overlay" onClick={onClose}>
@@ -604,27 +590,47 @@ function App() {
             </div>
           </div>
           
-          <div className="preview-content">
-            <div className="comparison-container" ref={comparisonRef} onMouseMove={handleMouseMove}>
+          <div className="preview-content" ref={previewRef} onWheel={handleWheel}>
+            {/* 垂直拖动条 */}
+            <div className="canvas-controls">
+              <div 
+                className="vertical-slider"
+                onMouseDown={handleVerticalMouseDown}
+              >
+                <div 
+                  className="vertical-handle"
+                  style={{ top: `${canvasHeight}%` }}
+                ></div>
+              </div>
+            </div>
+            
+            <div 
+              className="comparison-container" 
+              ref={comparisonRef} 
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              style={{ height: `${canvasHeight}%` }}
+            >
               <div className="comparison-image-container">
                 <img 
                   src={result.resizeMode && result.resizeMode !== 'keep' && result.resized ? result.resized.resizedUrl : result.originalUrl} 
                   alt={result.resizeMode && result.resizeMode !== 'keep' && result.resized ? "调整分辨率后" : "压缩前"} 
                   className="comparison-image comparison-original"
                   style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                  draggable={false}
                 />
                 <img 
                   src={result.downloadUrl} 
                   alt="压缩后" 
                   className="comparison-image"
                   style={{ clipPath: `inset(0 0 0 ${sliderPosition}%)` }}
+                  draggable={false}
                 />
               </div>
               
               <div 
                 className="comparison-slider"
                 style={{ left: `${sliderPosition}%` }}
-                onMouseDown={handleMouseDown}
               >
                 <div className="slider-handle"></div>
               </div>
@@ -761,97 +767,25 @@ function App() {
           
           <div className="file-list">
             {files.map((file, index) => {
-              const result = results.find(r => {
-                // 成功的压缩结果有 original.filename
-                if (r.original && r.original.filename === file.name) return true;
-                // 失败的压缩结果直接有 filename
-                if (r.filename === file.name) return true;
-                return false;
-              });
+              // 优化：使用文件名作为key，避免index变化导致的重新渲染
+              const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
               
-              // 处理预览点击
-              const handlePreviewClick = () => {
-                if (result && result.success) {
-                  // 有压缩结果，显示对比界面
-                  setPreviewModal(result);
-                } else {
-                  // 没有压缩结果，显示原图预览
-                  setPreviewModal({
-                    success: true,
-                    original: {
-                      filename: file.name,
-                      size: file.size,
-                      dimensions: '未知尺寸',
-                      format: file.type.split('/')[1]?.toUpperCase() || 'UNKNOWN'
-                    },
-                    compressed: {
-                      filename: file.name,
-                      size: file.size,
-                      compressionRatio: 0
-                    },
-                    downloadUrl: URL.createObjectURL(file),
-                    originalUrl: URL.createObjectURL(file)
-                  });
-                }
-              };
-              
-              // 检查是否为PNG文件
-              const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+              // 优化：直接通过index查找结果，避免O(n²)复杂度
+              const result = results[index];
               
               return (
-                <div key={index} className="file-item">
-                  {isPng && (
-                    <div className="convert-option">
-                      <label className="convert-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={convertToJpeg.get(file.name) || false}
-                          onChange={(e) => {
-                            const newConvertToJpeg = new Map(convertToJpeg);
-                            if (e.target.checked) {
-                              newConvertToJpeg.set(file.name, true);
-                            } else {
-                              newConvertToJpeg.delete(file.name);
-                            }
-                            setConvertToJpeg(newConvertToJpeg);
-                          }}
-                        />
-                        <span className="convert-label">转JPEG</span>
-                      </label>
-                    </div>
-                  )}
-                  <div className="file-preview" onClick={handlePreviewClick} style={{ cursor: 'pointer' }}>
-                    <FileThumbnail file={file} />
-                    <div className="file-name">{file.name}</div>
-                  </div>
-                  
-                  <div className="file-details">
-                    <FileInfo file={file} result={result} />
-                    
-                    <div className="file-actions">
-                      {result && result.success ? (
-                        <>
-                          <button className="btn-preview" onClick={() => setPreviewModal(result)}>
-                            <Eye style={{ width: '12px', height: '12px' }} />
-                          </button>
-                          {result.compressed && result.compressed.compressionRatio > 0 ? (
-                            <button className="btn-download" onClick={() => downloadSingle(result)}>
-                              <Download style={{ width: '12px', height: '12px' }} />
-                            </button>
-                          ) : null}
-                          <div 
-                            className="compression-percentage"
-                            style={{ color: getCompressionStatus(file, result).color }}
-                          >
-                            {getCompressionStatus(file, result).status === 'compressed' && '-'}
-                            {getCompressionStatus(file, result).status === 'increased' && '+'}
-                            {getCompressionStatus(file, result).percentage}%
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
+                <FileItem
+                  key={fileKey}
+                  file={file}
+                  index={index}
+                  result={result}
+                  convertToJpeg={convertToJpeg.get(file.name) || false}
+                  onRemove={removeFile}
+                  onConvertToJpeg={handleConvertToJpeg}
+                  onPreview={setPreviewModal}
+                  onDownloadSingle={downloadSingle}
+                  onErrorModal={handleErrorModal}
+                />
               );
             })}
           </div>
@@ -1126,28 +1060,22 @@ function App() {
   );
 }
 
-// 修复：创建独立的文件缩略图组件，使用 data URL
-function FileThumbnail({ file }) {
-  const [previewUrl, setPreviewUrl] = useState(null);
 
-  React.useEffect(() => {
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => setPreviewUrl(e.target.result);
-      reader.readAsDataURL(file);
+// 检查 File 对象在内存中是否还能读取（即使本地已删，内存对象通常可用）
+// 只读取前1个字节即可，无需读取全部内容
+const tryReadFileHead = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(true);
+    reader.onerror = () => reject(false);
+    try {
+      // 只读取前1个字节
+      const blob = file.slice(0, 1);
+      reader.readAsArrayBuffer(blob);
+    } catch (e) {
+      reject(false);
     }
-  }, [file]);
-
-  return (
-    <img 
-      src={previewUrl || '/placeholder.png'} 
-      alt={file?.name || 'preview'}
-      className="file-thumbnail"
-      onError={(e) => {
-        e.target.src = '/placeholder.png';
-      }}
-    />
-  );
-}
+  });
+};
 
 export default App;
