@@ -5,6 +5,18 @@ import axios from 'axios';
 import { zipSync } from 'fflate';
 import FileItem from './FileItem';
 import PreviewModal from './PreviewModal';
+import CompressionSettingsCompact from './CompressionSettingsCompact';
+import { 
+  formatFileSize, 
+  getFileType, 
+  getFileId, 
+  tryReadFileHead,
+  getFileCompressionSettings,
+  hasCompressionSettingsChanged,
+  SUPPORTED_FILE_TYPES,
+  DEFAULT_COMPRESSION_SETTINGS,
+  API_ENDPOINTS
+} from './utils';
 import './index.css';
 
 function App() {
@@ -16,23 +28,7 @@ function App() {
   const [showUpload, setShowUpload] = useState(true); // 控制显示上传界面还是文件列表
   const [previewModal, setPreviewModal] = useState(null); // 预览模态框数据
   const [errorModal, setErrorModal] = useState(null); // 错误模态框数据
-  const [settings, setSettings] = useState({
-    // PNG 压缩参数
-    lossy: true,  // 启用有损压缩以获得最佳效果
-    pngquantMin: 60,  // pngquant 最小质量
-    pngquantMax: 80,  // pngquant 最大质量
-    pngquantSpeed: 3,  // pngquant 速度 (1-11)
-    // JPEG 压缩参数
-    jpegQuality: 60,  // JPEG 质量 (60-95)
-    // WebP 压缩参数
-    webpQuality: 60,   // WebP 质量 (60-95)
-    // 分辨率调整参数
-    resizeMode: 'keep',  // 调整模式：keep, custom, maxWidth, maxHeight
-    resizeWidth: 300,    // 目标宽度
-    resizeHeight: 200,   // 目标高度
-    skipIfSmaller: false, // 小于当前尺寸不处理
-    fit: 'cover'         // 缩放规则：cover, contain, fill
-  });
+  const [settings, setSettings] = useState(DEFAULT_COMPRESSION_SETTINGS);
   const [compressionCache, setCompressionCache] = useState(new Map()); // 压缩结果缓存
   const [convertToJpeg, setConvertToJpeg] = useState(new Map()); // PNG转JPEG选项
 
@@ -46,104 +42,7 @@ function App() {
     }
   }, [success]);
 
-  // 生成文件唯一标识符
-  const getFileId = (file) => {
-    return `${file.name}-${file.size}-${file.lastModified}`;
-  };
 
-  // 获取文件格式（统一函数）
-  const getFileType = (file, format = 'display') => {
-    if (!file || !file.type) return format === 'display' ? 'UNKNOWN' : 'unknown';
-    const type = file.type.toLowerCase();
-    
-    if (type.includes('jpeg') || type.includes('jpg')) {
-      return format === 'display' ? 'JPEG' : 'jpeg';
-    }
-    if (type.includes('png')) {
-      return format === 'display' ? 'PNG' : 'png';
-    }
-    if (type.includes('webp')) {
-      return format === 'display' ? 'WEBP' : 'webp';
-    }
-    return format === 'display' ? 'UNKNOWN' : 'unknown';
-  };
-
-  // 获取文件对应的压缩参数
-  // 核心作用：为缓存策略提供精确的参数比较基础
-  // 根据文件格式返回该格式相关的参数，实现"按需分配"策略
-  // 避免不同格式的参数变化相互干扰，确保缓存策略的精确性
-  const getFileCompressionSettings = (file) => {
-    const format = getFileType(file, 'format');
-    const baseSettings = {
-      lossy: settings.lossy,
-      pngquantMin: settings.pngquantMin,
-      pngquantMax: settings.pngquantMax,
-      pngquantSpeed: settings.pngquantSpeed,
-      jpegQuality: settings.jpegQuality,
-      webpQuality: settings.webpQuality,
-      // 分辨率调整参数
-      resizeMode: settings.resizeMode,
-      resizeWidth: settings.resizeWidth,
-      resizeHeight: settings.resizeHeight,
-      skipIfSmaller: settings.skipIfSmaller,
-      fit: settings.fit
-    };
-    
-    // 根据文件格式返回相关参数
-    // 每个格式只包含自己相关的参数，避免无关参数影响缓存判断
-    const formatSettings = {
-      png: {
-        lossy: baseSettings.lossy,
-        pngquantMin: baseSettings.pngquantMin,
-        pngquantMax: baseSettings.pngquantMax,
-        pngquantSpeed: baseSettings.pngquantSpeed,
-        convertToJpeg: convertToJpeg.get(file.name) || false, // 添加转换选项
-        // 如果转换为JPEG，也要包含JPEG质量参数
-        // 这样当用户调整JPEG质量时，PNG转JPEG的缓存会被正确检测为需要更新
-        jpegQuality: convertToJpeg.get(file.name) ? baseSettings.jpegQuality : undefined,
-        // 分辨率调整参数
-        resizeMode: baseSettings.resizeMode,
-        resizeWidth: baseSettings.resizeWidth,
-        resizeHeight: baseSettings.resizeHeight,
-        skipIfSmaller: baseSettings.skipIfSmaller,
-        fit: baseSettings.fit
-      },
-      jpeg: {
-        jpegQuality: baseSettings.jpegQuality,
-        // 分辨率调整参数
-        resizeMode: baseSettings.resizeMode,
-        resizeWidth: baseSettings.resizeWidth,
-        resizeHeight: baseSettings.resizeHeight,
-        skipIfSmaller: baseSettings.skipIfSmaller,
-        fit: baseSettings.fit
-      },
-      webp: {
-        webpQuality: baseSettings.webpQuality,
-        // 分辨率调整参数
-        resizeMode: baseSettings.resizeMode,
-        resizeWidth: baseSettings.resizeWidth,
-        resizeHeight: baseSettings.resizeHeight,
-        skipIfSmaller: baseSettings.skipIfSmaller,
-        fit: baseSettings.fit
-      }
-    };
-    
-    return formatSettings[format] || baseSettings;
-  };
-
-  // 检查压缩参数是否改变
-  const hasCompressionSettingsChanged = (file) => {
-    const fileId = getFileId(file);
-    const currentSettings = getFileCompressionSettings(file);
-    const cachedSettings = compressionCache.get(fileId)?.settings;
-    
-    if (!cachedSettings) return true; // 没有缓存，需要压缩
-    
-    // 比较相关参数
-    return Object.keys(currentSettings).some(key => 
-      cachedSettings[key] !== currentSettings[key]
-    );
-  };
 
   const onDrop = useCallback((acceptedFiles) => {
     // 只有在成功接受文件时才处理
@@ -182,12 +81,7 @@ function App() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     onDropRejected,
-    accept: {
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/bmp': ['.bmp'],
-      'image/webp': ['.webp']
-    },
+    accept: SUPPORTED_FILE_TYPES,
     multiple: true,
     maxFiles: 100
   });
@@ -217,7 +111,7 @@ function App() {
       });
 
       // 等待所有文件校验完成
-      const fileValidationResults = await Promise.all(fileValidationPromises);
+        const fileValidationResults = await Promise.all(fileValidationPromises);
 
       // 分析哪些文件需要重新压缩
       const filesToCompress = [];
@@ -240,7 +134,7 @@ function App() {
         }
 
         const fileId = getFileId(file);
-        const needsCompression = hasCompressionSettingsChanged(file);
+        const needsCompression = hasCompressionSettingsChanged(file, settings, convertToJpeg, compressionCache);
         
         if (needsCompression) {
           console.log(`文件 ${file.name} 需要重新压缩`);
@@ -287,7 +181,7 @@ function App() {
         formData.append('skipIfSmaller', settings.skipIfSmaller);
         formData.append('fit', settings.fit);
 
-        const response = await axios.post('./api/compress/batch', formData, {
+        const response = await axios.post(API_ENDPOINTS.COMPRESS_BATCH, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -303,7 +197,7 @@ function App() {
           // 更新缓存
           const file = files[fileIndex];
           const fileId = getFileId(file);
-          const currentSettings = getFileCompressionSettings(file);
+          const currentSettings = getFileCompressionSettings(file, settings, convertToJpeg);
           
           setCompressionCache(prev => {
             const newCache = new Map(prev);
@@ -516,18 +410,6 @@ function App() {
   }, []);
 
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-
-
-
-
   // 错误模态框组件
   function ErrorModal({ errorModal, onClose }) {
     console.log('ErrorModal渲染', errorModal);
@@ -665,217 +547,10 @@ function App() {
           </div>
           
           {/* 压缩设置区域 - 紧凑版 */}
-          <div className="compression-settings-compact">
-            <div className="settings-grid">
-              {/* PNG 配置 */}
-              <div className="png-config-container">
-                <div className="png-config-label">PNG压缩配置</div>
-                <div className="png-config-items">
-                  <div className="setting-item">
-                    <label className="setting-label-small">质量范围</label>
-                    <div className="quality-inputs">
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={settings.pngquantMin}
-                        onChange={(e) => setSettings({...settings, pngquantMin: parseInt(e.target.value)})}
-                        className="setting-input-small"
-                        placeholder="最小"
-                      />
-                      <span>-</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={settings.pngquantMax}
-                        onChange={(e) => setSettings({...settings, pngquantMax: parseInt(e.target.value)})}
-                        className="setting-input-small"
-                        placeholder="最大"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="setting-item">
-                    <label className="setting-label-small">速度</label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="11"
-                      value={settings.pngquantSpeed}
-                      onChange={(e) => setSettings({...settings, pngquantSpeed: parseInt(e.target.value)})}
-                      className="setting-range-small"
-                    />
-                    <span className="speed-value">{settings.pngquantSpeed}</span>
-                  </div>
-                  
-                  <div className="setting-item">
-                    <div className="setting-checkbox-small">
-                      <input
-                        type="checkbox"
-                        id="lossy"
-                        checked={settings.lossy}
-                        onChange={(e) => setSettings({...settings, lossy: e.target.checked})}
-                        className="checkbox-small"
-                      />
-                      <label htmlFor="lossy">有损压缩</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* JPEG 配置 */}
-              <div className="jpeg-config-container">
-                <div className="jpeg-config-label">JPEG压缩配置</div>
-                <div className="jpeg-config-items">
-                  <div className="setting-item">
-                    <label className="setting-label-small">质量</label>
-                    <input
-                      type="range"
-                      min="60"
-                      max="95"
-                      value={settings.jpegQuality}
-                      onChange={(e) => setSettings({...settings, jpegQuality: parseInt(e.target.value)})}
-                      className="setting-range-small"
-                    />
-                    <span className="speed-value">{settings.jpegQuality}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* WebP 配置 */}
-              <div className="webp-config-container">
-                <div className="webp-config-label">WebP压缩配置</div>
-                <div className="webp-config-items">
-                  <div className="setting-item">
-                    <label className="setting-label-small">质量</label>
-                    <input
-                      type="range"
-                      min="60"
-                      max="95"
-                      value={settings.webpQuality}
-                      onChange={(e) => setSettings({...settings, webpQuality: parseInt(e.target.value)})}
-                      className="setting-range-small"
-                    />
-                    <span className="speed-value">{settings.webpQuality}</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 分辨率调整配置 */}
-              <div className="resize-config-container">
-                <div className="resize-config-label">分辨率调整配置</div>
-                <div className="resize-config-items">
-                  <div className="setting-item">
-                    <label className="setting-label-small">调整模式</label>
-                    <select
-                      value={settings.resizeMode}
-                      onChange={(e) => setSettings({...settings, resizeMode: e.target.value})}
-                      className="setting-select-small"
-                    >
-                      <option value="keep">保持原尺寸</option>
-                      <option value="custom">自定义尺寸</option>
-                      <option value="maxWidth">按宽度缩放</option>
-                      <option value="maxHeight">按高度缩放</option>
-                    </select>
-                  </div>
-                  
-                  {settings.resizeMode === 'custom' && (
-                    <div className="custom-size-options">
-                      <div className="setting-item">
-                        <label className="setting-label-small">目标宽度</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={settings.resizeWidth}
-                          onChange={(e) => setSettings({...settings, resizeWidth: parseInt(e.target.value)})}
-                          className="setting-input-small"
-                          placeholder="目标宽度"
-                        />
-                      </div>
-                      <div className="setting-item">
-                        <label className="setting-label-small">目标高度</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={settings.resizeHeight}
-                          onChange={(e) => setSettings({...settings, resizeHeight: parseInt(e.target.value)})}
-                          className="setting-input-small"
-                          placeholder="目标高度"
-                        />
-                      </div>
-                      <div className="setting-item">
-                        <label className="setting-label-small">缩放规则</label>
-                        <select
-                          value={settings.fit}
-                          onChange={(e) => setSettings({...settings, fit: e.target.value})}
-                          className="setting-select-small"
-                        >
-                          <option value="cover">裁剪填充</option>
-                          <option value="contain">完整显示</option>
-                          <option value="fill">强制拉伸</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {settings.resizeMode === 'maxWidth' && (
-                    <div className="proportional-size-options">
-                      <div className="setting-item">
-                        <label className="setting-label-small">目标宽度</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={settings.resizeWidth}
-                          onChange={(e) => setSettings({...settings, resizeWidth: parseInt(e.target.value)})}
-                          className="setting-input-small"
-                          placeholder="目标宽度"
-                        />
-                      </div>
-                      <div className="setting-item">
-                        <div className="setting-checkbox-small">
-                          <input
-                            type="checkbox"
-                            id="skipIfSmaller"
-                            checked={settings.skipIfSmaller}
-                            onChange={(e) => setSettings({...settings, skipIfSmaller: e.target.checked})}
-                          />
-                          <label htmlFor="skipIfSmaller">小于当前尺寸不处理</label>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {settings.resizeMode === 'maxHeight' && (
-                    <div className="proportional-size-options">
-                      <div className="setting-item">
-                        <label className="setting-label-small">目标高度</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={settings.resizeHeight}
-                          onChange={(e) => setSettings({...settings, resizeHeight: parseInt(e.target.value)})}
-                          className="setting-input-small"
-                          placeholder="目标高度"
-                        />
-                      </div>
-                      <div className="setting-item">
-                        <div className="setting-checkbox-small">
-                          <input
-                            type="checkbox"
-                            id="skipIfSmaller"
-                            checked={settings.skipIfSmaller}
-                            onChange={(e) => setSettings({...settings, skipIfSmaller: e.target.checked})}
-                          />
-                          <label htmlFor="skipIfSmaller">小于当前尺寸不处理</label>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <CompressionSettingsCompact 
+            settings={settings} 
+            setSettings={setSettings} 
+          />
           
           {/* 使用说明提示 */}
           <div className="usage-tips">
@@ -936,21 +611,5 @@ function App() {
 }
 
 
-// 检查 File 对象在内存中是否还能读取（即使本地已删，内存对象通常可用）
-// 只读取前1个字节即可，无需读取全部内容
-const tryReadFileHead = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(true);
-    reader.onerror = () => reject(false);
-    try {
-      // 只读取前1个字节
-      const blob = file.slice(0, 1);
-      reader.readAsArrayBuffer(blob);
-    } catch (e) {
-      reject(false);
-    }
-  });
-};
 
 export default App;

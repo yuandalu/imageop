@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatFileSize, getFileType, getImageDimensions, getCompressionStatus } from './utils';
 
 // 文件信息组件
 const FileInfo = React.memo(({ file, result, onErrorModal }) => {
@@ -85,67 +86,5 @@ const FileInfo = React.memo(({ file, result, onErrorModal }) => {
   );
 });
 
-// 辅助函数（从原代码复制）
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const getFileType = (file, format = 'display') => {
-  if (!file || !file.type) return format === 'display' ? 'UNKNOWN' : 'unknown';
-  const type = file.type.toLowerCase();
-  
-  if (type.includes('jpeg') || type.includes('jpg')) {
-    return format === 'display' ? 'JPEG' : 'jpeg';
-  }
-  if (type.includes('png')) {
-    return format === 'display' ? 'PNG' : 'png';
-  }
-  if (type.includes('webp')) {
-    return format === 'display' ? 'WEBP' : 'webp';
-  }
-  return format === 'display' ? 'UNKNOWN' : 'unknown';
-};
-
-const getImageDimensions = (file) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        resolve(`${img.width}x${img.height}`);
-      };
-      img.onerror = () => {
-        resolve('未知尺寸');
-      };
-      img.src = e.target.result;
-    };
-    reader.onerror = () => {
-      resolve('未知尺寸');
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
-const getCompressionStatus = (file, result) => {
-  if (!result || !result.success) {
-    return { status: 'pending', percentage: 0, color: '#6b7280' };
-  }
-  
-  const originalSize = result.original.size;
-  const compressedSize = result.compressed.size;
-  const percentage = Math.round(((originalSize - compressedSize) / originalSize) * 100);
-  
-  if (percentage > 0) {
-    return { status: 'compressed', percentage, color: '#10b981' };
-  } else if (percentage < 0) {
-    return { status: 'increased', percentage: Math.abs(percentage), color: '#f59e0b' };
-  } else {
-    return { status: 'no-change', percentage: 0, color: '#6b7280' };
-  }
-};
 
 export default FileInfo;

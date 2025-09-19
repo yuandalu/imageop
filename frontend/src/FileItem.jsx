@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Eye, Download } from 'lucide-react';
 import FileThumbnail from './FileThumbnail';
 import FileInfo from './FileInfo';
+import { getCompressionStatus } from './utils';
 
 // 独立的文件项组件
 const FileItem = React.memo(({ 
@@ -124,23 +125,5 @@ const FileItem = React.memo(({
   );
 });
 
-// 获取压缩状态（从原代码复制）
-const getCompressionStatus = (file, result) => {
-  if (!result || !result.success) {
-    return { status: 'pending', percentage: 0, color: '#6b7280' };
-  }
-  
-  const originalSize = result.original.size;
-  const compressedSize = result.compressed.size;
-  const percentage = Math.round(((originalSize - compressedSize) / originalSize) * 100);
-  
-  if (percentage > 0) {
-    return { status: 'compressed', percentage, color: '#10b981' };
-  } else if (percentage < 0) {
-    return { status: 'increased', percentage: Math.abs(percentage), color: '#f59e0b' };
-  } else {
-    return { status: 'no-change', percentage: 0, color: '#6b7280' };
-  }
-};
 
 export default FileItem;

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download } from 'lucide-react';
+import { formatFileSize } from './utils';
 
 // 预览模态框组件
 const PreviewModal = ({ result, onClose, onDownloadSingle }) => {
@@ -262,13 +263,5 @@ const PreviewModal = ({ result, onClose, onDownloadSingle }) => {
   );
 };
 
-// 格式化文件大小
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
 
 export default PreviewModal;
