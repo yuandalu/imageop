@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Download, Archive } from 'lucide-react';
+import { Upload, Download, Archive, Sun, Moon } from 'lucide-react';
 import axios from 'axios';
 import { zipSync } from 'fflate';
 import FileItem from './components/FileItem';
@@ -36,6 +36,26 @@ function App() {
   const [settings, setSettings] = useState(DEFAULT_COMPRESSION_SETTINGS);
   const [compressionCache, setCompressionCache] = useState(new Map()); // 压缩结果缓存
   const [convertToJpeg, setConvertToJpeg] = useState(new Map()); // PNG转JPEG选项
+  
+  // 主题状态管理
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    // 从localStorage读取主题设置，默认为暗色主题
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme === 'light' ? false : true; // 默认为暗色主题
+  });
+
+  // 主题切换函数
+  const toggleTheme = useCallback(() => {
+    const newTheme = !isDarkTheme;
+    setIsDarkTheme(newTheme);
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', newTheme ? 'dark' : 'light');
+  }, [isDarkTheme]);
+
+  // 初始化主题
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+  }, [isDarkTheme]);
 
 
 
@@ -321,6 +341,12 @@ function App() {
     <div className="container">
       <header className="header">
         <h1>ImageOpimizer</h1>
+        <button className="theme-toggle" onClick={toggleTheme}>
+          <div className="theme-toggle-slider">
+            <Sun className="theme-toggle-icon sun" size={14} />
+            <Moon className="theme-toggle-icon moon" size={14} />
+          </div>
+        </button>
       </header>
 
       {showUpload ? (
