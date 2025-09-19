@@ -145,16 +145,42 @@ function App() {
   };
 
   const onDrop = useCallback((acceptedFiles) => {
-    // 重新上传：替换整个列表
-    setFiles(acceptedFiles);
-    setResults([]); // 清空之前的结果
-    setError('');
-    setSuccess('');
-    setShowUpload(false); // 上传后立即切换到文件列表视图
+    // 只有在成功接受文件时才处理
+    if (acceptedFiles.length > 0) {
+      // 重新上传：替换整个列表
+      setFiles(acceptedFiles);
+      setResults([]); // 清空之前的结果
+      setError('');
+      setSuccess('');
+      setShowUpload(false); // 上传后立即切换到文件列表视图
+    }
+  }, []);
+
+  const onDropRejected = useCallback((rejectedFiles) => {
+    // 处理被拒绝的文件
+    const tooManyFiles = rejectedFiles.some(file => 
+      file.errors.some(error => error.code === 'too-many-files')
+    );
+    
+    if (tooManyFiles) {
+      setError('最多只能上传100个文件，请减少文件数量后重试');
+    } else {
+      // 检查其他类型的错误
+      const invalidFileTypes = rejectedFiles.filter(file => 
+        file.errors.some(error => error.code === 'file-invalid-type')
+      );
+      
+      if (invalidFileTypes.length > 0) {
+        setError(`有 ${invalidFileTypes.length} 个文件格式不支持，请只上传图片文件`);
+      } else {
+        setError('文件上传失败，请重试');
+      }
+    }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
@@ -402,23 +428,39 @@ function App() {
     input.onchange = (e) => {
       const newFiles = Array.from(e.target.files);
       if (newFiles.length > 0) {
-        // 排重：只添加不存在的文件
-        setFiles(prevFiles => {
-          const existingNames = new Set(prevFiles.map(file => file.name));
-          const uniqueNewFiles = newFiles.filter(file => !existingNames.has(file.name));
-          
-          if (uniqueNewFiles.length < newFiles.length) {
-            const duplicateCount = newFiles.length - uniqueNewFiles.length;
-            setError(`已忽略 ${duplicateCount} 个重复文件`);
-            setTimeout(() => setError(''), 3000); // 3秒后清除提示
-          }
-          
-          return [...prevFiles, ...uniqueNewFiles];
-        });
-        setSuccess('');
+        // 检查当前文件数量 + 新文件数量是否超过100个
+        const currentFileCount = files.length;
+        const totalFileCount = currentFileCount + newFiles.length;
+        
+        if (totalFileCount > 100) {
+          // 完全拒绝添加，显示错误提示
+          setError(`最多只能添加 ${100 - currentFileCount} 个文件（当前已有 ${currentFileCount} 个文件，总共不能超过100个）`);
+          setTimeout(() => setError(''), 3000);
+          return;
+        }
+        
+        processNewFiles(newFiles);
       }
     };
     input.click();
+  };
+
+  // 处理新文件的辅助函数
+  const processNewFiles = (newFiles) => {
+    // 排重：只添加不存在的文件
+    setFiles(prevFiles => {
+      const existingNames = new Set(prevFiles.map(file => file.name));
+      const uniqueNewFiles = newFiles.filter(file => !existingNames.has(file.name));
+      
+      if (uniqueNewFiles.length < newFiles.length) {
+        const duplicateCount = newFiles.length - uniqueNewFiles.length;
+        setError(`已忽略 ${duplicateCount} 个重复文件`);
+        setTimeout(() => setError(''), 3000); // 3秒后清除提示
+      }
+      
+      return [...prevFiles, ...uniqueNewFiles];
+    });
+    setSuccess('');
   };
 
 
