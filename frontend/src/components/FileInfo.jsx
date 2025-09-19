@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatFileSize, getFileType, getImageDimensions, getCompressionStatus } from './utils';
+import { formatFileSize, getFileType, getImageDimensions, getCompressionStatus } from '../utils';
 
 // 文件信息组件
 const FileInfo = React.memo(({ file, result, onErrorModal }) => {

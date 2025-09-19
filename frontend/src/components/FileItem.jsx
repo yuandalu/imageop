@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Eye, Download } from 'lucide-react';
 import FileThumbnail from './FileThumbnail';
 import FileInfo from './FileInfo';
-import { getCompressionStatus } from './utils';
+import { getCompressionStatus } from '../utils';
 
 // 独立的文件项组件
 const FileItem = React.memo(({ 

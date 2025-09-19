@@ -377,7 +377,9 @@ body {
   z-index: 1000;
   max-width: 90%;
   min-width: 300px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   animation: slideUp 0.3s ease-out;
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download } from 'lucide-react';
-import { formatFileSize } from './utils';
+import { formatFileSize } from '../utils';
 
 // 预览模态框组件
 const PreviewModal = ({ result, onClose, onDownloadSingle }) => {

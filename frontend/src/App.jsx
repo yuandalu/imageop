@@ -3,11 +3,11 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, Download, Eye, Settings, CheckCircle, AlertCircle, Archive } from 'lucide-react';
 import axios from 'axios';
 import { zipSync } from 'fflate';
-import FileItem from './FileItem';
-import PreviewModal from './PreviewModal';
-import CompressionSettingsCompact from './CompressionSettingsCompact';
-import MessageToast from './MessageToast';
-import ErrorModal from './ErrorModal';
+import FileItem from './components/FileItem';
+import PreviewModal from './components/PreviewModal';
+import CompressionSettingsCompact from './components/CompressionSettingsCompact';
+import MessageToast from './components/MessageToast';
+import ErrorModal from './components/ErrorModal';
 import { 
   formatFileSize, 
   getFileType, 
