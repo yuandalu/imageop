@@ -790,7 +790,7 @@ body {
 /* 垂直拖动条 */
 .vertical-slider {
   position: relative;
-  height: 100%;
+  height: 60%;
   width: 6px;
   background: rgba(0, 0, 0, 0.1);
   border-radius: 3px;

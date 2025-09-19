@@ -4,6 +4,7 @@ import { Upload, Download, Eye, Settings, CheckCircle, AlertCircle, Archive } fr
 import axios from 'axios';
 import { zipSync } from 'fflate';
 import FileItem from './FileItem';
+import PreviewModal from './PreviewModal';
 import './index.css';
 
 function App() {
@@ -526,175 +527,6 @@ function App() {
 
 
 
-  // 预览模态框组件
-  function PreviewModal({ result, onClose }) {
-    const [sliderPosition, setSliderPosition] = useState(50); // 滑块位置 (0-100)
-    const [isDragging, setIsDragging] = useState(false);
-    const [canvasHeight, setCanvasHeight] = useState(50); // 画布高度百分比 (0-100)
-    const [isVerticalDragging, setIsVerticalDragging] = useState(false);
-    const comparisonRef = useRef(null);
-    const previewRef = useRef(null);
-
-    const handleMouseDown = (e) => {
-      setIsDragging(true);
-      e.preventDefault();
-    };
-
-    const handleMouseMove = (e) => {
-      if (!isDragging || !comparisonRef.current) return;
-      
-      const rect = comparisonRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      setSliderPosition(percentage);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    // 垂直拖动处理
-    const handleVerticalMouseDown = (e) => {
-      setIsVerticalDragging(true);
-      e.preventDefault();
-    };
-
-    const handleVerticalMouseMove = (e) => {
-      if (!isVerticalDragging || !previewRef.current) return;
-      
-      const rect = previewRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const percentage = Math.max(0, Math.min(100, (y / rect.height) * 100));
-      setCanvasHeight(percentage);
-    };
-
-    const handleVerticalMouseUp = () => {
-      setIsVerticalDragging(false);
-    };
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    // 滚轮控制画布高度（放大缩小）
-    const handleWheel = (e) => {
-      const delta = e.deltaY > 0 ? 1 : -1; // 滚轮向下增加1%，向上减少1%
-      setCanvasHeight(prev => {
-        // 使用平滑的步长变化：高度越小，步长越小
-        // 使用对数函数实现平滑过渡，最小步长为0.1，最大步长为1
-        const minStep = 0.1;
-        const maxStep = 1;
-        const smoothFactor = Math.log(prev / 5 + 1) / Math.log(20); // 5-100映射到0-1
-        const adjustedDelta = delta * (minStep + (maxStep - minStep) * smoothFactor);
-        
-        return Math.max(5, Math.min(100, prev + adjustedDelta));
-      });
-    };
-
-    useEffect(() => {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('mousemove', handleVerticalMouseMove);
-      document.addEventListener('mouseup', handleVerticalMouseUp);
-      document.addEventListener('keydown', handleKeyDown);
-      
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.removeEventListener('mousemove', handleVerticalMouseMove);
-        document.removeEventListener('mouseup', handleVerticalMouseUp);
-        document.removeEventListener('keydown', handleKeyDown);
-      };
-    }, [isDragging, isVerticalDragging]);
-
-    return (
-      <div className="preview-modal-overlay" onClick={onClose}>
-        <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="preview-header">
-            <h3>
-              预览对比 - {
-                result.resizeMode && result.resizeMode !== 'keep' && result.resized 
-                  ? '调整分辨率后 vs 压缩后' 
-                  : '原图 vs 压缩后'
-              }
-            </h3>
-            <div className="preview-actions">
-              {result.compressed && result.compressed.compressionRatio > 0 ? (
-                <button className="preview-download" onClick={() => downloadSingle(result)}>
-                  <Download style={{ width: '16px', height: '16px' }} />
-                </button>
-              ) : null}
-              <button className="preview-close" onClick={onClose}>
-                ×
-              </button>
-            </div>
-          </div>
-          
-          <div className="preview-content" ref={previewRef} onWheel={handleWheel}>
-            {/* 垂直拖动条 */}
-            <div className="canvas-controls">
-              <div 
-                className="vertical-slider"
-                onMouseDown={handleVerticalMouseDown}
-              >
-                <div 
-                  className="vertical-handle"
-                  style={{ top: `${canvasHeight}%` }}
-                ></div>
-              </div>
-            </div>
-            
-            <div 
-              className="comparison-container" 
-              ref={comparisonRef} 
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              style={{ height: `${canvasHeight}%` }}
-            >
-              <div className="comparison-image-container">
-                <img 
-                  src={result.resizeMode && result.resizeMode !== 'keep' && result.resized ? result.resized.resizedUrl : result.originalUrl} 
-                  alt={result.resizeMode && result.resizeMode !== 'keep' && result.resized ? "调整分辨率后" : "压缩前"} 
-                  className="comparison-image comparison-original"
-                  style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-                  draggable={false}
-                />
-                <img 
-                  src={result.downloadUrl} 
-                  alt="压缩后" 
-                  className="comparison-image"
-                  style={{ clipPath: `inset(0 0 0 ${sliderPosition}%)` }}
-                  draggable={false}
-                />
-              </div>
-              
-              <div 
-                className="comparison-slider"
-                style={{ left: `${sliderPosition}%` }}
-              >
-                <div className="slider-handle"></div>
-              </div>
-              
-              <div className="comparison-labels">
-                <div className="label-left">
-                  {result.resizeMode && result.resizeMode !== 'keep' && result.resized ? '调整分辨率后' : '压缩前'} {
-                    result.resizeMode && result.resizeMode !== 'keep' && result.resized 
-                      ? formatFileSize(result.resized.size) 
-                      : formatFileSize(result.original.size)
-                  }
-                </div>
-                <div className="label-right">
-                  压缩后 {formatFileSize(result.compressed.size)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // 错误模态框组件
   function ErrorModal({ errorModal, onClose }) {
@@ -1088,7 +920,8 @@ function App() {
       {previewModal && (
         <PreviewModal 
           result={previewModal} 
-          onClose={() => setPreviewModal(null)} 
+          onClose={() => setPreviewModal(null)}
+          onDownloadSingle={downloadSingle}
         />
       )}
 
